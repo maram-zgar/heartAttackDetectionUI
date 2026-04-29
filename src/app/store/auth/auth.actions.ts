@@ -50,7 +50,7 @@ export const AuthActions = createActionGroup({
 
     // Token refresh
     'Refresh Token': emptyProps(),
-    'Refresh Token Success': props<{ accessToken: string }>(),
+    'Refresh Token Success': props<{ accessToken: string; refreshToken: string }>(),
     'Refresh Token Failure': emptyProps(),
 
     // Clear error

@@ -78,9 +78,10 @@ export const authReducer = createReducer(
   })),
 
   // Token refresh
-  on(AuthActions.refreshTokenSuccess, (state, { accessToken }) => ({
+  on(AuthActions.refreshTokenSuccess, (state, { accessToken, refreshToken }) => ({
     ...state,
     accessToken,
+    refreshToken,
     isAuthenticated: true,
   })),
   on(AuthActions.refreshTokenFailure, () => ({

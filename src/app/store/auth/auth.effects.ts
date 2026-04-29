@@ -3,7 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { of } from 'rxjs';
-import { catchError, exhaustMap, filter, map, switchMap, tap, withLatestFrom } from 'rxjs/operators';
+import { catchError, exhaustMap, map, switchMap, tap, withLatestFrom } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuthActions } from './auth.actions';
 
@@ -26,11 +26,8 @@ export class AuthEffects {
     this.actions$.pipe(
       ofType(AuthActions.initializeApp),
       tap(() => console.log(' [AUTH EFFECTS] INITIALIZE APP ACTION')),
-      filter(() => this.isBrowser),
       switchMap(() => {
-        const rememberMe = localStorage.getItem('rememberMe') === 'true';
-        const hasRefreshToken = this.authService.hasRefreshToken();
-        
+        const rememberMe = this.isBrowser && localStorage.getItem('rememberMe') === 'true';
         console.log(' [AUTH EFFECTS] isBrowser:', this.isBrowser);
         console.log(' [AUTH EFFECTS] rememberMe from storage:', rememberMe);
         
@@ -42,7 +39,10 @@ export class AuthEffects {
           return this.authService.refreshToken().pipe(
             tap((res) => console.log(' [AUTH EFFECTS] Token refresh succeeded:', res.accessToken?.substring(0, 20) + '...')),
             map((res) =>
-              AuthActions.refreshTokenSuccess({ accessToken: res.accessToken })
+              AuthActions.refreshTokenSuccess({ 
+                accessToken: res.accessToken,
+                refreshToken: res.accessToken!,
+             })
             ),
             catchError((err) => {
               console.error(' [AUTH EFFECTS] Token refresh failed:', err.status, err.error);
@@ -132,13 +132,24 @@ export class AuthEffects {
   { dispatch: false }
 );
 
-  loadProfileAfterSuccess$ = createEffect(() =>
+  loadProfileAfterLogin$ = createEffect(() =>
     this.actions$.pipe(
-      ofType(AuthActions.loginSuccess, AuthActions.refreshTokenSuccess),
+      ofType(AuthActions.loginSuccess),
       switchMap(() =>
         this.authService.getUserProfile().pipe(
+          tap((profile) => {
+            console.log(' [AUTH EFFECTS] User profile loaded');
+            console.log(' [AUTH EFFECTS] User email:', profile.email);
+            console.log(' [AUTH EFFECTS] User role:', profile.role);
+            console.log(' [AUTH EFFECTS] Full profile:', profile);
+          }),
           map((profile) => AuthActions.loadProfileSuccess({ profile })),
-          catchError((err) => of(AuthActions.loadProfileFailure({ error: err.message })))
+          catchError((err) => {
+            console.error(' [AUTH EFFECTS] Failed to load profile:', err.status, err.error);
+            return of(AuthActions.loadProfileFailure({
+              error: err.error?.message || 'Impossible de récupérer le profil utilisateur.',
+            }));
+          })
         )
       )
     )
@@ -149,12 +160,9 @@ export class AuthEffects {
       this.actions$.pipe(
         ofType(AuthActions.loadProfileSuccess),
         tap(({ profile }) => {
-          // Only navigate if we aren't already on a protected page
-          const onAuthPage = this.router.url.includes('/auth');
-          if (onAuthPage) {
-            const destination = this.getDashboardRoute(profile.role);
-            this.router.navigateByUrl(destination);
-          }
+          console.log(' [AUTH EFFECTS] Routing to dashboard for role:', profile.role);
+          const destination = this.getDashboardRoute(profile.role);
+          this.router.navigateByUrl(destination);
         })
       ),
     { dispatch: false }
@@ -226,17 +234,32 @@ export class AuthEffects {
   this.actions$.pipe(
     ofType(AuthActions.refreshToken),
     exhaustMap(() => {
+      // Use the service method — it reads the token internally
       if (!this.authService.hasRefreshToken()) {
         return of(AuthActions.refreshTokenFailure());
       }
 
       return this.authService.refreshToken().pipe(
-        map(res => AuthActions.refreshTokenSuccess({ accessToken: res.accessToken })),
+        map(res => AuthActions.refreshTokenSuccess({ accessToken: res.accessToken, refreshToken: res.refreshToken!, })),
         catchError(() => of(AuthActions.refreshTokenFailure()))
       );
     })
   )
 );
+
+  refreshTokenSuccess$ = createEffect(
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.refreshTokenSuccess),
+        tap(({ accessToken, refreshToken }) => {
+          if (this.isBrowser) {
+            localStorage.setItem('access_token', accessToken);
+            localStorage.setItem('refresh_token', refreshToken);
+          }
+        })
+      ),
+    { dispatch: false }
+  );
 
   refreshTokenFailure$ = createEffect(() =>
     this.actions$.pipe(

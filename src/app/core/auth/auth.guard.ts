@@ -48,10 +48,6 @@ export const redirectGuard: CanActivateFn = () => {
 };
 
 
-
-
-// Add this to the bottom of auth.guard.ts
-
 // Prevents logged-in users from accessing login/signup pages
 export const guestGuard: CanActivateFn = () => {
   const store = inject(Store);
