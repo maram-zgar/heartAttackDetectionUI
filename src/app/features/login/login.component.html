@@ -1,0 +1,171 @@
+<!-- login.component.html -->
+<div class="auth-shell">
+
+  <!-- ── Hero Panel (image background) ── -->
+  <div class="auth-hero auth-hero--image">
+
+    <!-- ECG line overlay -->
+    <div class="ecg-decoration">
+      <svg viewBox="0 0 500 80" preserveAspectRatio="none">
+        <polyline points="
+          0,40 60,40 75,15 85,65 100,40 120,40
+          140,40 155,10 162,70 172,40 200,40
+          220,40 235,18 242,62 252,40 280,40
+          300,40 315,12 322,68 332,40 360,40
+          380,40 395,16 402,64 412,40 440,40
+          460,40 475,14 482,66 492,40 500,40
+        "/>
+      </svg>
+    </div>
+
+    <!-- Brand -->
+    <div class="auth-hero-brand">
+      <div class="brand-icon">
+        <i class="pi pi-heart-fill"></i>
+      </div>
+      <span class="brand-name">CardioSense</span>
+    </div>
+
+    <!-- Main content -->
+    <div class="auth-hero-content">
+      <div class="hero-eyebrow">
+        <div class="pulse-dot"></div>
+        <span>Surveillance en temps réel</span>
+      </div>
+      <h1>
+        Détectez les <span class="accent">crises</span><br>avant qu'elles arrivent
+      </h1>
+      <p>
+        Plateforme clinique de détection des crises cardiaques et de suivi des patients, pensée pour les cardiologues.
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="auth-hero-stats">
+      <div class="stat-pill">
+        <div class="stat-icon"><i class="pi pi-bolt"></i></div>
+        <span>Analyse ECG en temps réel</span>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-icon"><i class="pi pi-shield"></i></div>
+        <span>Données sécurisées & conformes RGPD</span>
+      </div>
+      <div class="stat-pill">
+        <div class="stat-icon"><i class="pi pi-users"></i></div>
+        <span>Suivi multi-patients</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Form Panel ── -->
+  <div class="auth-form-panel">
+
+    <!-- Dark mode toggle -->
+    <div class="dark-toggle">
+      <button (click)="toggleDarkMode()" [title]="isDark ? 'Mode clair' : 'Mode sombre'">
+        <i [class]="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
+      </button>
+    </div>
+
+    <div class="auth-form-inner">
+
+      <div class="auth-form-header">
+        <h2>Bon retour 👋</h2>
+        <p>Connectez-vous à votre espace CardioSense</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
+
+        <!-- Global error -->
+        @if (error$ | async; as error) {
+          <p-message severity="error" [text]="error" styleClass="w-full mb-3" />
+        }
+
+        <!-- Email -->
+        <div class="auth-field">
+          <label for="email">Adresse e-mail</label>
+          <p-iconfield>
+            <p-inputicon styleClass="pi pi-envelope" />
+            <input
+              pInputText
+              id="email"
+              type="email"
+              formControlName="email"
+              class="w-full"
+              placeholder="docteur@hopital.com"
+              [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('email') }"
+              autocomplete="email"
+            />
+          </p-iconfield>
+          @if (isFieldInvalid('email')) {
+            <small class="field-error">
+              <i class="pi pi-exclamation-circle"></i>
+              {{ email.errors?.['required'] ? 'L\'e-mail est requis.' : 'Veuillez entrer un e-mail valide.' }}
+            </small>
+          }
+        </div>
+
+        <!-- Password -->
+        <div class="auth-field">
+          <label for="password">Mot de passe</label>
+          <p-password
+            inputId="password"
+            formControlName="password"
+            styleClass="w-full"
+            [inputStyle]="{ width: '100%' }"
+            [feedback]="false"
+            [toggleMask]="true"
+            placeholder="••••••••"
+            [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('password') }"
+            autocomplete="current-password"
+          />
+          @if (isFieldInvalid('password')) {
+            <small class="field-error">
+              <i class="pi pi-exclamation-circle"></i>
+              {{ password.errors?.['required'] ? 'Le mot de passe est requis.' : 'Minimum 6 caractères.' }}
+            </small>
+          }
+        </div>
+
+        <!-- Remember me + Forgot -->
+        <div class="flex align-items-center justify-content-between mb-4">
+          <div class="flex align-items-center gap-2">
+            <p-checkbox
+              inputId="rememberMe"
+              formControlName="rememberMe"
+              [(ngModel)]="rememberMe"
+              [binary]="true"
+            />
+            <label for="rememberMe" class="cursor-pointer select-none" style="font-size: 0.85rem; color: var(--auth-text-muted);">
+              Se souvenir de moi
+            </label>
+          </div>
+          <a routerLink="/forgot-password" style="font-size: 0.85rem; color: #059669; font-weight: 600; text-decoration: none;">
+            Mot de passe oublié ?
+          </a>
+        </div>
+
+        <!-- Submit -->
+        <p-button
+          type="submit"
+          label="Se connecter"
+          icon="pi pi-sign-in"
+          styleClass="w-full"
+          [loading]="!!(loading$ | async)"
+        />
+
+        <p-divider align="center">
+          <span style="font-size: 0.8rem; color: var(--auth-text-muted);">ou</span>
+        </p-divider>
+
+        <div class="auth-footer-link">
+          Pas encore de compte ?
+          <a routerLink="/auth/signup">Créer un compte</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>

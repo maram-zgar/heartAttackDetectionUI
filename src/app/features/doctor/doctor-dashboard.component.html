@@ -1,0 +1,802 @@
+<p-toast position="top-right" />
+
+<div class="doc-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
+
+  <!-- ══════════════════════════════════════════════════════════
+       SIDEBAR
+       ══════════════════════════════════════════════════════════ -->
+  <aside class="doc-sidebar">
+
+    <div class="doc-brand">
+      <div class="doc-brand-icon">
+        <i class="pi pi-heart-fill"></i>
+      </div>
+      @if (!sidebarCollapsed()) {
+        <div class="doc-brand-text">
+          <span class="doc-brand-name">CardioSense</span>
+          <span class="doc-brand-role">Médecin</span>
+        </div>
+      }
+    </div>
+
+    <nav class="doc-nav">
+      @for (item of navItems; track item.id) {
+        <button
+          class="doc-nav-item"
+          [class.active]="activeNav() === item.id"
+          (click)="navigateTo($any(item.id))"
+          [pTooltip]="sidebarCollapsed() ? item.label : ''"
+          tooltipPosition="right"
+        >
+          <i class="pi {{ item.icon }} doc-nav-icon"></i>
+          @if (!sidebarCollapsed()) {
+            <span>{{ item.label }}</span>
+          }
+          @if (activeNav() === item.id) {
+            <div class="doc-nav-indicator"></div>
+          }
+        </button>
+      }
+    </nav>
+
+    <div class="doc-sidebar-footer">
+      <button
+        class="doc-nav-item"
+        (click)="toggleSettings()"
+        [pTooltip]="sidebarCollapsed() ? 'Paramètres' : ''"
+        tooltipPosition="right"
+      >
+        <i class="pi pi-cog doc-nav-icon" [class.spinning]="settingsPanelOpen()"></i>
+        @if (!sidebarCollapsed()) { <span>Paramètres</span> }
+      </button>
+      <button
+        class="doc-nav-item danger"
+        routerLink="/auth/authenticate"
+        [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''"
+        tooltipPosition="right"
+      >
+        <i class="pi pi-sign-out doc-nav-icon"></i>
+        @if (!sidebarCollapsed()) { <span>Déconnexion</span> }
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════════
+       MAIN AREA
+       ══════════════════════════════════════════════════════════ -->
+  <div class="doc-main">
+
+    <header class="doc-topbar">
+      <div class="doc-topbar-left">
+        <button class="doc-icon-btn" (click)="toggleSidebar()" title="Réduire le menu">
+          <i class="pi pi-bars"></i>
+        </button>
+        <div class="doc-breadcrumb">
+          <span class="doc-breadcrumb-root">CardioSense</span>
+          <i class="pi pi-chevron-right"></i>
+          <span class="doc-breadcrumb-current">
+            {{ navItems | titleFromId: activeNav() }}
+          </span>
+        </div>
+      </div>
+      <div class="doc-topbar-right">
+        <button
+          class="doc-icon-btn"
+          (click)="toggleDark()"
+          [title]="isDark ? 'Mode clair' : 'Mode sombre'"
+        >
+          <i [class]="'pi ' + (isDark ? 'pi-sun' : 'pi-moon')"></i>
+        </button>
+        <button class="doc-icon-btn" (click)="loadAllData()" title="Actualiser">
+          <i class="pi pi-refresh"></i>
+        </button>
+        <div class="doc-avatar-chip" (click)="toggleSettings()">
+          <div class="doc-avatar">{{ doctorInitials() }}</div>
+          <div class="doc-avatar-info">
+            <span class="doc-avatar-name">{{ doctorName() }}</span>
+            <span class="doc-avatar-tag">Médecin</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="doc-content">
+
+      <!-- ── OVERVIEW ─────────────────────────────────────────────── -->
+      @if (activeNav() === 'overview') {
+
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Vue d'ensemble</h1>
+            <p class="doc-page-sub">Bonjour, Dr {{ doctorName() }} — voici votre tableau de bord clinique.</p>
+          </div>
+        </div>
+
+        <div class="doc-stats-grid">
+          <div class="doc-stat-card" style="--delay:0ms">
+            <div class="doc-stat-icon emerald"><i class="pi pi-users"></i></div>
+            <div class="doc-stat-body">
+              <span class="doc-stat-label">Total Patients</span>
+              @if (loadingPatients()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ totalPatients() }}</span> }
+            </div>
+            <div class="doc-stat-trend up"><i class="pi pi-arrow-up-right"></i> +{{ totalPatients() }}</div>
+          </div>
+
+          <div class="doc-stat-card" style="--delay:100ms">
+            <div class="doc-stat-icon rose"><i class="pi pi-exclamation-triangle"></i></div>
+            <div class="doc-stat-body">
+              <span class="doc-stat-label">Patients Critiques</span>
+              @if (loadingPatients()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ criticalPatients() }}</span> }
+            </div>
+            <div class="doc-stat-trend down"><i class="pi pi-arrow-down-right"></i> Nécessitant attention</div>
+          </div>
+
+          <div class="doc-stat-card" style="--delay:200ms">
+            <div class="doc-stat-icon amber"><i class="pi pi-calendar"></i></div>
+            <div class="doc-stat-body">
+              <span class="doc-stat-label">RDV Aujourd'hui</span>
+              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ todayAppointments() }}</span> }
+            </div>
+            <div class="doc-stat-trend up"><i class="pi pi-arrow-up-right"></i> Planifiés</div>
+          </div>
+
+          <div class="doc-stat-card" style="--delay:300ms">
+            <div class="doc-stat-icon blue"><i class="pi pi-hourglass"></i></div>
+            <div class="doc-stat-body">
+              <span class="doc-stat-label">RDV en attente</span>
+              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ pendingAppointments() }}</span> }
+            </div>
+            <div class="doc-stat-trend neutral"><i class="pi pi-clock"></i> À valider</div>
+          </div>
+        </div>
+
+        <!-- Quick panels -->
+        <div class="doc-two-col-grid">
+          <div class="doc-card" style="--delay:400ms">
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title">Patients récents</h2>
+                <p class="doc-card-sub">Derniers patients assignés</p>
+              </div>
+              <button class="doc-btn-ghost" (click)="navigateTo('patients')">
+                Voir tous <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="doc-table-wrap">
+              @if (loadingPatients()) {
+                @for (i of [1,2,3]; track i) {
+                  <div class="doc-patient-row">
+                    <p-skeleton circle width="2.5rem" height="2.5rem" />
+                    <div style="flex:1"><p-skeleton height="1rem" /></div>
+                  </div>
+                }
+              } @else if (patients().length === 0) {
+                <div class="doc-empty-state">
+                  <i class="pi pi-inbox" style="font-size:2rem;opacity:.4"></i>
+                  <span>Aucun patient enregistré</span>
+                </div>
+              } @else {
+                @for (patient of patients().slice(0, 5); track patient.id) {
+                  <div class="doc-patient-row" (click)="openPatientDetail(patient)">
+                    <div class="doc-patient-avatar">
+                      {{ (patient.firstName?.[0] ?? '') + (patient.lastName?.[0] ?? '') | uppercase }}
+                    </div>
+                    <div class="doc-patient-info">
+                      <span class="doc-patient-name">{{ patient.firstName }} {{ patient.lastName }}</span>
+                      <span class="doc-patient-email">{{ patient.email }}</span>
+                    </div>
+                    <p-tag
+                      [value]="getStatusLabel(patient.status)"
+                      [severity]="getStatusSeverity(patient.status)"
+                    />
+                  </div>
+                }
+              }
+            </div>
+          </div>
+
+          <div class="doc-card" style="--delay:500ms">
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title">Rendez-vous d'aujourd'hui</h2>
+                <p class="doc-card-sub">{{ todayAppointments() }} rendez-vous prévus</p>
+              </div>
+              <button class="doc-btn-ghost" (click)="navigateTo('appointments')">
+                Voir tous <i class="pi pi-arrow-right"></i>
+              </button>
+            </div>
+
+            <div class="doc-table-wrap">
+              @if (loadingAppointments()) {
+                @for (i of [1,2,3]; track i) {
+                  <div class="doc-appointment-row">
+                    <p-skeleton height="1rem" style="margin-bottom:.5rem" />
+                    <p-skeleton height="1rem" width="70%" />
+                  </div>
+                }
+              } @else {
+                @if (todayAppointments() === 0) {
+                  <div class="doc-empty-state">
+                    <i class="pi pi-calendar-blank" style="font-size:2rem;opacity:.4"></i>
+                    <span>Pas de rendez-vous aujourd'hui</span>
+                  </div>
+                } @else {
+                  @for (appt of todayAppointmentsList(); track appt.id) {
+                    <div class="doc-appointment-row">
+                      <div class="doc-appointment-time">{{ appt.date | date: 'HH:mm' }}</div>
+                      <div class="doc-appointment-patient">{{ appt.patientName }}</div>
+                      <p-tag
+                        [value]="getAppointmentStatusLabel(appt.status)"
+                        [severity]="getAppointmentStatusSeverity(appt.status)"
+                      />
+                    </div>
+                  }
+                }
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ── PATIENTS ──────────────────────────────────────────────── -->
+      @if (activeNav() === 'patients') {
+
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Patients</h1>
+            <p class="doc-page-sub">Liste complète de vos patients assignés.</p>
+          </div>
+          <button class="doc-btn-primary" (click)="loadPatients()">
+            <i class="pi pi-refresh"></i> Actualiser
+          </button>
+        </div>
+
+        @if (errorPatients()) {
+          <div class="doc-error-banner">
+            <i class="pi pi-exclamation-circle"></i>
+            {{ errorPatients() }}
+          </div>
+        }
+
+        <div class="doc-card">
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Patient</th>
+                  <th>Email</th>
+                  <th>Statut</th>
+                  <th>Risque</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (loadingPatients()) {
+                  @for (i of [1,2,3,4,5]; track i) {
+                    <tr>
+                      <td colspan="6"><p-skeleton height="1rem" /></td>
+                    </tr>
+                  }
+                } @else if (patients().length === 0) {
+                  <tr>
+                    <td colspan="6" class="doc-table-empty">
+                      <i class="pi pi-inbox" style="font-size:1.5rem;opacity:.4"></i>
+                      <span>Aucun patient enregistré</span>
+                    </td>
+                  </tr>
+                } @else {
+                  @for (patient of patients(); track patient.id; let i = $index) {
+                    <tr class="doc-table-row">
+                      <td class="doc-table-index">{{ i + 1 }}</td>
+                      <td>
+                        <div class="doc-doctor-cell">
+                          <div class="doc-patient-avatar">
+                            {{ (patient.firstName?.[0] ?? '') + (patient.lastName?.[0] ?? '') | uppercase }}
+                          </div>
+                          <span class="doc-patient-name">{{ patient.firstName }} {{ patient.lastName }}</span>
+                        </div>
+                      </td>
+                      <td class="doc-email-cell">{{ patient.email }}</td>
+                      <td>
+                        <p-tag
+                          [value]="getStatusLabel(patient.status)"
+                          [severity]="getStatusSeverity(patient.status)"
+                        />
+                      </td>
+                      <td>
+                        <span class="doc-risk-badge" [class]="'doc-risk-' + (patient.riskLevel ?? 'unknown')">
+                          {{ getRiskLabel(patient.riskLevel) }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="doc-action-btns">
+                          <button
+                            class="doc-action-btn view"
+                            pTooltip="Détails"
+                            (click)="openPatientDetail(patient)"
+                          >
+                            <i class="pi pi-eye"></i>
+                          </button>
+                          <button
+                            class="doc-action-btn consult"
+                            pTooltip="Consultation"
+                            (click)="openConsultationDialog(patient)"
+                          >
+                            <i class="pi pi-file-edit"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- ── APPOINTMENTS ─────────────────────────────────────────── -->
+      @if (activeNav() === 'appointments') {
+
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Rendez-vous</h1>
+            <p class="doc-page-sub">Gérez votre agenda et vos consultations.</p>
+          </div>
+          <button class="doc-btn-primary" (click)="loadAppointments()">
+            <i class="pi pi-refresh"></i> Actualiser
+          </button>
+        </div>
+
+        @if (errorAppointments()) {
+          <div class="doc-error-banner">
+            <i class="pi pi-exclamation-circle"></i>
+            {{ errorAppointments() }}
+          </div>
+        }
+
+        <div class="doc-card">
+          <div class="doc-table-wrap">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Patient</th>
+                  <th>Date & Heure</th>
+                  <th>Type</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (loadingAppointments()) {
+                  @for (i of [1,2,3,4,5]; track i) {
+                    <tr>
+                      <td colspan="6"><p-skeleton height="1rem" /></td>
+                    </tr>
+                  }
+                } @else if (appointments().length === 0) {
+                  <tr>
+                    <td colspan="6" class="doc-table-empty">
+                      <i class="pi pi-calendar-blank" style="font-size:1.5rem;opacity:.4"></i>
+                      <span>Aucun rendez-vous enregistré</span>
+                    </td>
+                  </tr>
+                } @else {
+                  @for (appt of appointments(); track appt.id; let i = $index) {
+                    <tr class="doc-table-row">
+                      <td class="doc-table-index">{{ i + 1 }}</td>
+                      <td>
+                        <div class="doc-doctor-cell">
+                          <span class="doc-patient-name">{{ appt.patientName }}</span>
+                        </div>
+                      </td>
+                      <td class="doc-date-cell">{{ appt.date | date: 'dd/MM/yyyy HH:mm' }}</td>
+                      <td>{{ appt.type || '—' }}</td>
+                      <td>
+                        <p-tag
+                          [value]="getAppointmentStatusLabel(appt.status)"
+                          [severity]="getAppointmentStatusSeverity(appt.status)"
+                        />
+                      </td>
+                      <td>
+                        <div class="doc-action-btns">
+                          @if (appt.status === 'scheduled') {
+                            <button
+                              class="doc-action-btn consult"
+                              pTooltip="Compléter"
+                              (click)="openConsultationDialog({ id: appt.patientId, firstName: '', lastName: '', email: '' }, appt.id)"
+                            >
+                              <i class="pi pi-file-edit"></i>
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- ── PREDICTION IA ──────────────────────────────────────── -->
+      @if (activeNav() === 'prediction') {
+
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Prédiction IA — Risque Cardiaque</h1>
+            <p class="doc-page-sub">Entrez les paramètres cliniques du patient pour obtenir une prédiction de risque d'attaque cardiaque.</p>
+          </div>
+        </div>
+
+        <div class="doc-prediction-layout">
+
+          <!-- Form card -->
+          <div class="doc-card doc-prediction-form-card">
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title"><i class="pi pi-sliders-h"></i> Paramètres cliniques</h2>
+                <p class="doc-card-sub">Remplissez tous les champs requis</p>
+              </div>
+            </div>
+
+            <form [formGroup]="predictionForm" class="doc-prediction-form">
+
+              <div class="doc-pred-grid">
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Âge</label>
+                  <input pInputText type="number" formControlName="age" class="doc-form-input" placeholder="Ex: 58" />
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Sexe</label>
+                  <select formControlName="sex" class="doc-form-input doc-form-select">
+                    <option [ngValue]="true">Homme</option>
+                    <option [ngValue]="false">Femme</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Type de douleur thoracique (0–3)</label>
+                  <select formControlName="chestPainType" class="doc-form-input doc-form-select">
+                    <option [ngValue]="0">0 — Angine typique</option>
+                    <option [ngValue]="1">1 — Angine atypique</option>
+                    <option [ngValue]="2">2 — Douleur non angineuse</option>
+                    <option [ngValue]="3">3 — Asymptomatique</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Pression artérielle au repos (mmHg)</label>
+                  <input pInputText type="number" formControlName="restingBloodPressure" class="doc-form-input" placeholder="Ex: 140" />
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Cholestérol sérique (mg/dl)</label>
+                  <input pInputText type="number" formControlName="cholesterol" class="doc-form-input" placeholder="Ex: 240" />
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Glycémie à jeun &gt; 120 mg/dl</label>
+                  <select formControlName="fastingBloodSugar" class="doc-form-input doc-form-select">
+                    <option [ngValue]="true">Oui</option>
+                    <option [ngValue]="false">Non</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">ECG au repos (0–2)</label>
+                  <select formControlName="restingECG" class="doc-form-input doc-form-select">
+                    <option [ngValue]="0">0 — Normal</option>
+                    <option [ngValue]="1">1 — Anomalie ST-T</option>
+                    <option [ngValue]="2">2 — HVG probable</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Fréquence cardiaque max (bpm)</label>
+                  <input pInputText type="number" formControlName="maxHeartRateAchieved" class="doc-form-input" placeholder="Ex: 155" />
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Angine induite par l'effort</label>
+                  <select formControlName="exerciseInducedAngina" class="doc-form-input doc-form-select">
+                    <option [ngValue]="true">Oui</option>
+                    <option [ngValue]="false">Non</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Dépression ST à l'effort</label>
+                  <input pInputText type="number" step="0.1" formControlName="STDepressionInducedByExercise" class="doc-form-input" placeholder="Ex: 1.5" />
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Pente du segment ST (0–2)</label>
+                  <select formControlName="slopeOfPeakExerciseSTSegment" class="doc-form-input doc-form-select">
+                    <option [ngValue]="0">0 — Descendante</option>
+                    <option [ngValue]="1">1 — Plate</option>
+                    <option [ngValue]="2">2 — Ascendante</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Nombre de vaisseaux majeurs (0–3)</label>
+                  <select formControlName="nbOfMajorVessels" class="doc-form-input doc-form-select">
+                    <option [ngValue]="0">0</option>
+                    <option [ngValue]="1">1</option>
+                    <option [ngValue]="2">2</option>
+                    <option [ngValue]="3">3</option>
+                  </select>
+                </div>
+
+                <div class="doc-form-group doc-pred-full">
+                  <label class="doc-form-label">Thalassémie</label>
+                  <select formControlName="thalassemia" class="doc-form-input doc-form-select">
+                    <option [ngValue]="1">1 — Normal</option>
+                    <option [ngValue]="2">2 — Défaut fixe</option>
+                    <option [ngValue]="3">3 — Défaut réversible</option>
+                  </select>
+                </div>
+
+              </div><!-- /doc-pred-grid -->
+
+              <div class="doc-pred-submit-row">
+                <button
+                  class="doc-btn-primary doc-pred-submit-btn"
+                  type="button"
+                  (click)="submitPrediction()"
+                  [disabled]="predictionForm.invalid || predictionLoading()"
+                >
+                  @if (predictionLoading()) {
+                    <i class="pi pi-spin pi-spinner"></i> Analyse en cours...
+                  } @else {
+                    <i class="pi pi-send"></i> Lancer la prédiction
+                  }
+                </button>
+              </div>
+
+            </form>
+          </div>
+
+          <!-- Result card -->
+          <div class="doc-card doc-prediction-result-card">
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title"><i class="pi pi-chart-pie"></i> Résultat</h2>
+                <p class="doc-card-sub">Analyse du risque cardiaque</p>
+              </div>
+            </div>
+
+            @if (!predictionResult() && !predictionError() && !predictionLoading()) {
+              <div class="doc-pred-idle">
+                <div class="doc-pred-idle-icon">
+                  <i class="pi pi-heart"></i>
+                </div>
+                <p class="doc-pred-idle-text">Remplissez le formulaire et lancez l'analyse pour obtenir un résultat.</p>
+              </div>
+            }
+
+            @if (predictionLoading()) {
+              <div class="doc-pred-idle">
+                <i class="pi pi-spin pi-spinner" style="font-size:3rem;color:var(--doc-emerald)"></i>
+                <p class="doc-pred-idle-text">Analyse en cours...</p>
+              </div>
+            }
+
+            @if (predictionError()) {
+              <div class="doc-error-banner">
+                <i class="pi pi-exclamation-circle"></i>
+                {{ predictionError() }}
+              </div>
+            }
+
+            @if (predictionResult(); as result) {
+              <div class="doc-pred-result" [class.doc-pred-high-risk]="result.prediction === 1" [class.doc-pred-low-risk]="result.prediction === 0">
+                <div class="doc-pred-result-icon">
+                  <i [class]="result.prediction === 1 ? 'pi pi-exclamation-triangle' : 'pi pi-check-circle'"></i>
+                </div>
+                <div class="doc-pred-result-label">
+                  {{ result.prediction === 1 ? 'Risque élevé d\'attaque cardiaque' : 'Risque faible d\'attaque cardiaque' }}
+                </div>
+                @if (result.probability !== undefined) {
+                  <div class="doc-pred-result-prob">
+                    Probabilité : <strong>{{ (result.probability * 100) | number: '1.1-1' }}%</strong>
+                  </div>
+                }
+                <div class="doc-pred-result-advice">
+                  @if (result.prediction === 1) {
+                    <p>⚠️ Ce patient présente des indicateurs de risque élevé. Un suivi cardiologique urgent est recommandé.</p>
+                  } @else {
+                    <p>✅ Les paramètres cliniques indiquent un faible risque cardiovasculaire. Continuez le suivi préventif.</p>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+        </div><!-- /doc-prediction-layout -->
+      }
+
+    </div><!-- /doc-content -->
+
+    <!-- Settings panel -->
+    <div class="doc-settings-overlay" *ngIf="settingsPanelOpen()" (click)="toggleSettings()"></div>
+    <aside class="doc-settings-panel" [class.open]="settingsPanelOpen()">
+      <div class="doc-settings-header">
+        <h3>Paramètres</h3>
+        <button class="doc-icon-btn" (click)="toggleSettings()">✕</button>
+      </div>
+      <div class="doc-settings-body">
+        <div class="doc-settings-item">
+          <span>Mode sombre</span>
+          <button class="doc-toggle-btn" [class.active]="isDark" (click)="toggleDark()">
+            <span class="doc-toggle-knob"></span>
+          </button>
+        </div>
+        <div class="doc-settings-item">
+          <span>Email</span>
+          <span class="doc-settings-value">{{ doctorEmail() || '—' }}</span>
+        </div>
+        <div class="doc-settings-item">
+          <span>Rôle</span>
+          <span class="doc-settings-value">Médecin</span>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /doc-main -->
+
+</div><!-- /doc-shell -->
+
+<!-- ══════════════════════════════════════════════════════════
+     CONSULTATION DIALOG
+     ══════════════════════════════════════════════════════════ -->
+<p-dialog
+  [visible]="consultationDialogVisible()"
+  (visibleChange)="consultationDialogVisible.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Compléter la consultation"
+  styleClass="doc-dialog"
+  [style]="{ width: '32rem' }">
+
+  <div class="doc-dialog-body" *ngIf="selectedPatient()">
+    <form [formGroup]="consultationForm">
+      <div class="doc-dialog-patient-info">
+        <div class="doc-dialog-avatar">
+          {{ (selectedPatient()!.firstName?.[0] ?? '') + (selectedPatient()!.lastName?.[0] ?? '') | uppercase }}
+        </div>
+        <div>
+          <p class="doc-dialog-patient-name">{{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}</p>
+          <p class="doc-dialog-patient-email">{{ selectedPatient()!.email }}</p>
+        </div>
+      </div>
+
+      <div class="doc-form-group">
+        <label class="doc-form-label">Diagnostic</label>
+        <input
+          pInputText
+          type="text"
+          formControlName="diagnosis"
+          placeholder="Ex: Hypertension artérielle, Arythmie..."
+          class="doc-form-input"
+        />
+      </div>
+
+      <div class="doc-form-group">
+        <label class="doc-form-label">Notes cliniques <span class="doc-required">*</span></label>
+        <textarea
+          pTextarea
+          formControlName="notes"
+          rows="5"
+          placeholder="Observations, recommandations, traitement prescrit..."
+          class="doc-form-textarea"
+        ></textarea>
+      </div>
+
+      <div class="doc-form-group">
+        <label class="doc-form-label">Prochain rendez-vous</label>
+        <input
+          pInputText
+          type="date"
+          formControlName="nextAppointment"
+          class="doc-form-input"
+        />
+      </div>
+    </form>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button class="doc-btn-secondary" (click)="consultationDialogVisible.set(false)">Annuler</button>
+    <button
+      class="doc-btn-primary"
+      (click)="submitConsultation()"
+      [disabled]="submittingConsultation() || !consultationForm.valid"
+    >
+      <span *ngIf="submittingConsultation()">Envoi...</span>
+      <span *ngIf="!submittingConsultation()">Enregistrer</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══════════════════════════════════════════════════════════
+     PATIENT DETAIL DIALOG
+     ══════════════════════════════════════════════════════════ -->
+<p-dialog
+  [visible]="patientDetailVisible()"
+  (visibleChange)="patientDetailVisible.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Détail du patient"
+  styleClass="doc-dialog"
+  [style]="{ width: '28rem' }">
+
+  <div class="doc-dialog-body" *ngIf="selectedPatientDetail()">
+    <div class="doc-dialog-patient-info">
+      <div class="doc-dialog-avatar">
+        {{ (selectedPatientDetail()!.firstName?.[0] ?? '') + (selectedPatientDetail()!.lastName?.[0] ?? '') | uppercase }}
+      </div>
+      <div>
+        <p class="doc-dialog-patient-name">{{ selectedPatientDetail()!.firstName }} {{ selectedPatientDetail()!.lastName }}</p>
+        <p class="doc-dialog-patient-email">{{ selectedPatientDetail()!.email }}</p>
+      </div>
+    </div>
+
+    <div class="doc-detail-grid">
+      <div class="doc-detail-item">
+        <span class="doc-detail-key">Téléphone</span>
+        <span class="doc-detail-val">{{ selectedPatientDetail()!.phone ?? '—' }}</span>
+      </div>
+      <div class="doc-detail-item">
+        <span class="doc-detail-key">Date de naissance</span>
+        <span class="doc-detail-val">{{ formatDate(selectedPatientDetail()!.dateOfBirth) }}</span>
+      </div>
+      <div class="doc-detail-item">
+        <span class="doc-detail-key">Statut clinique</span>
+        <span class="doc-detail-val">
+          <p-tag
+            [value]="getStatusLabel(selectedPatientDetail()!.status)"
+            [severity]="getStatusSeverity(selectedPatientDetail()!.status)"
+          />
+        </span>
+      </div>
+      <div class="doc-detail-item">
+        <span class="doc-detail-key">Niveau de risque</span>
+        <span class="doc-detail-val">
+          <span class="doc-risk-badge" [class]="'doc-risk-' + (selectedPatientDetail()!.riskLevel ?? 'unknown')">
+            {{ getRiskLabel(selectedPatientDetail()!.riskLevel) }}
+          </span>
+        </span>
+      </div>
+      <div class="doc-detail-item">
+        <span class="doc-detail-key">Dernière visite</span>
+        <span class="doc-detail-val">{{ formatDate(selectedPatientDetail()!.lastVisit) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button class="doc-btn-secondary" (click)="patientDetailVisible.set(false)">Fermer</button>
+    <button
+      class="doc-btn-primary"
+      (click)="patientDetailVisible.set(false); openConsultationDialog(selectedPatientDetail()!)"
+    >
+      Nouvelle consultation
+    </button>
+  </ng-template>
+</p-dialog>

@@ -42,3 +42,13 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+
+node_modules/
+dist/
+.angular/
+.env
+*.log
+coverage/
+.vscode/
+.idea/
