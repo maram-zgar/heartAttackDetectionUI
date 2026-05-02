@@ -514,7 +514,7 @@ export class ActiveConsultationComponent implements OnInit {
       patientId:        this.patient.id,
       patientEmail:     this.patient.email,
       patientFirstName: this.patient.firstName,
-      doctorId:         doctor.id,
+      doctorId:         doctor.id.toString(),
       doctorEmail:      doctor.email,
     }).subscribe({
       next: () => {

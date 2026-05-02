@@ -5,10 +5,12 @@ import {
   AppointmentResponse, AppointmentStatus
 } from '../models/doctor.model';
 import { forkJoin } from 'rxjs';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class DoctorStateService {
   private api = inject(DoctorApiService);
+  private readonly authService = inject(AuthService);
 
   // ── Raw signals ──────────────────────────────────────────────────────────────
   doctorProfile = signal<DoctorProfile | null>(null);
@@ -57,12 +59,16 @@ export class DoctorStateService {
   loadAll(): void {
     this.loading.set(true);
     forkJoin({
-      profile:      this.api.getMe(),
+      profile:      this.authService.getUserProfile(),
       patients:     this.api.getAllPatients(),
       appointments: this.api.getAllAppointments(),
     }).subscribe({
       next: ({ profile, patients, appointments }) => {
-        this.doctorProfile.set(profile);
+        if (profile.role !== 'DOCTOR') {
+          this.loading.set(false);
+          return; // guard: wrong role
+        }
+        this.doctorProfile.set(profile as DoctorProfile);
         this.patients.set(patients);
         this.appointments.set(appointments);
         this.loading.set(false);

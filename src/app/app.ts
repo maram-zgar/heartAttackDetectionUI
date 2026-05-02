@@ -10,7 +10,7 @@ import { AuthActions } from './store/auth/auth.actions';
   styleUrl: './app.scss'
 })
 export class App implements OnInit {
-  protected readonly title = signal('heartAttackDetectionUI');
+  protected readonly title = signal('CardioSense');
   private readonly store = inject(Store);
 
   ngOnInit(): void {

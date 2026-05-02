@@ -1,13 +1,10 @@
-export interface DoctorProfile {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber?: string;
+import { UserProfile } from '../../../shared/models/user-profile.model';
+
+export type DoctorProfile = UserProfile & {
+  role: 'DOCTOR';
   numeroRPPS?: string;
-  avatarUrl?: string;
   isActive: boolean;
-}
+};
 
 export interface PatientResponse {
   id: string;

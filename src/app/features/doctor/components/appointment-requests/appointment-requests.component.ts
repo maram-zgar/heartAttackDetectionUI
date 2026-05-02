@@ -442,7 +442,7 @@ export class AppointmentRequestsComponent implements OnInit {
     if (this.newApptForm.invalid) return;
     this.creatingAppt.set(true);
     const raw = this.newApptForm.value;
-    const doctorId = this.state.doctorProfile()?.id ?? '';
+    const doctorId = this.state.doctorProfile()?.id.toString()!;
 
     this.api.createAppointment({
       patientId:   raw.patientId!,

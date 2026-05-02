@@ -2,10 +2,10 @@ import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { of } from 'rxjs';
 import { catchError, exhaustMap, map, switchMap, tap, withLatestFrom } from 'rxjs/operators';
 import { AuthService } from '../../core/auth/auth.service';
-import { AuthActions } from './auth.actions';
+import { AuthActions, rehydrateAuth } from './auth.actions';
+import { EMPTY, of }                       from 'rxjs';
 
 import { selectIsAuthenticated } from './auth.selectors';
 import { Store } from '@ngrx/store';
@@ -27,21 +27,24 @@ export class AuthEffects {
       ofType(AuthActions.initializeApp),
       tap(() => console.log(' [AUTH EFFECTS] INITIALIZE APP ACTION')),
       switchMap(() => {
-        const rememberMe = this.isBrowser && localStorage.getItem('rememberMe') === 'true';
-        console.log(' [AUTH EFFECTS] isBrowser:', this.isBrowser);
+
+        if (!this.isBrowser) return EMPTY;
+
+        const accessToken   = localStorage.getItem('access_token');
+        const refreshToken  = localStorage.getItem('refresh_token');
+        const rememberMe = localStorage.getItem('rememberMe') === 'true';
+        
         console.log(' [AUTH EFFECTS] rememberMe from storage:', rememberMe);
         
         if (rememberMe && this.authService.hasRefreshToken()) {
           console.log(' [AUTH EFFECTS] Attempting to refresh token...');
-          const token = this.authService.getRefreshToken();
-          console.log(' [AUTH EFFECTS] Refresh token exists:', !!token);
           
           return this.authService.refreshToken().pipe(
             tap((res) => console.log(' [AUTH EFFECTS] Token refresh succeeded:', res.accessToken?.substring(0, 20) + '...')),
             map((res) =>
               AuthActions.refreshTokenSuccess({ 
                 accessToken: res.accessToken,
-                refreshToken: res.accessToken!,
+                refreshToken: res.refreshToken!,
              })
             ),
             catchError((err) => {
@@ -50,9 +53,35 @@ export class AuthEffects {
             })
           );
         }
-        console.log('⏭ [AUTH EFFECTS] No rememberMe or refresh token, skip refresh');
-        return of(AuthActions.refreshTokenFailure());
+
+        if (accessToken) {
+          return of(
+            rehydrateAuth({
+              accessToken,
+              refreshToken,
+              rememberMe: false,
+            })
+          );
+        }
+
+        return EMPTY;
       })
+    )
+  );
+
+  loadProfileAfterRehydrate$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(rehydrateAuth),
+      switchMap(() =>
+        this.authService.getUserProfile().pipe(
+          map((profile) => AuthActions.loadProfileSuccess({ profile })),
+          catchError((err) =>
+            of(AuthActions.loadProfileFailure({
+              error: err.error?.message || 'Impossible de récupérer le profil utilisateur.',
+            }))
+          )
+        )
+      )
     )
   );
 
@@ -264,14 +293,14 @@ export class AuthEffects {
   refreshTokenFailure$ = createEffect(() =>
     this.actions$.pipe(
       ofType(AuthActions.refreshTokenFailure),
-      tap(() => {
-        // Delegate token cleanup to the service (SSR-safe)
-        this.authService.clearTokens();
-      }),
+      // Check authentication state BEFORE clearTokens() mutates the store
       withLatestFrom(this.store.select(selectIsAuthenticated)),
-      tap(([, isAuthenticated]) => {
-        const onAuthPage = this.router.url.includes('/auth');
-        if (isAuthenticated && !onAuthPage) {
+      tap(([, wasAuthenticated]) => {
+        this.authService.clearTokens();
+
+        // Only redirect to login if the session was previously active.
+        // Avoids redirecting during a cold start where no session existed.
+        if (wasAuthenticated && this.isBrowser) {
           this.router.navigate(['/auth/authenticate']);
         }
       })

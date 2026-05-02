@@ -252,9 +252,14 @@
             <h1 class="doc-page-title">Patients</h1>
             <p class="doc-page-sub">Liste complète de vos patients assignés.</p>
           </div>
-          <button class="doc-btn-primary" (click)="loadPatients()">
-            <i class="pi pi-refresh"></i> Actualiser
-          </button>
+          <div class="doc-page-header-actions">
+            <button class="doc-btn-ghost" (click)="loadPatients()">
+              <i class="pi pi-refresh"></i> Actualiser
+            </button>
+            <button class="doc-btn-primary" (click)="openAddPatient()">
+              <i class="pi pi-user-plus"></i> Ajouter un patient
+            </button>
+          </div>
         </div>
 
         @if (errorPatients()) {
@@ -263,6 +268,61 @@
             {{ errorPatients() }}
           </div>
         }
+
+        <p-dialog
+          [visible]="editPatientVisible()"
+          (visibleChange)="editPatientVisible.set($event)"
+          [modal]="true"
+          [closable]="true"
+          [draggable]="false"
+          [resizable]="false"
+          header="Modifier le patient"
+          styleClass="doc-dialog"
+          [style]="{ width: '520px' }"
+        >
+          <div class="doc-dialog-body">
+            <form [formGroup]="editPatientForm">
+              <div class="doc-add-patient-grid">
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Prénom <span class="doc-required">*</span></label>
+                  <input pInputText formControlName="firstName" class="doc-form-input" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Nom <span class="doc-required">*</span></label>
+                  <input pInputText formControlName="lastName" class="doc-form-input" />
+                </div>
+                <div class="doc-form-group doc-add-patient-full">
+                  <label class="doc-form-label">Adresse e-mail <span class="doc-required">*</span></label>
+                  <input pInputText formControlName="email" type="email" class="doc-form-input" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Hôpital</label>
+                  <input pInputText formControlName="hospital" class="doc-form-input" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Téléphone</label>
+                  <input pInputText formControlName="phone" class="doc-form-input" />
+                </div>
+              </div>
+            </form>
+          </div>
+          <ng-template pTemplate="footer">
+            <button class="doc-btn-secondary" (click)="editPatientVisible.set(false)">Annuler</button>
+            <button
+              class="doc-btn-primary"
+              (click)="submitEditPatient()"
+              [disabled]="editPatientForm.invalid || submittingEditPatient()"
+            >
+              @if (submittingEditPatient()) {
+                <i class="pi pi-spin pi-spinner"></i> Enregistrement...
+              } @else {
+                <i class="pi pi-save"></i> Enregistrer
+              }
+            </button>
+          </ng-template>
+        </p-dialog>
+
+        <p-confirmDialog [style]="{width: '450px'}"></p-confirmDialog>
 
         <div class="doc-card">
           <div class="doc-table-wrap">
@@ -317,19 +377,17 @@
                       </td>
                       <td>
                         <div class="doc-action-btns">
-                          <button
-                            class="doc-action-btn view"
-                            pTooltip="Détails"
-                            (click)="openPatientDetail(patient)"
-                          >
+                          <button class="doc-action-btn view" pTooltip="Détails" (click)="openPatientDetail(patient)">
                             <i class="pi pi-eye"></i>
                           </button>
-                          <button
-                            class="doc-action-btn consult"
-                            pTooltip="Consultation"
-                            (click)="openConsultationDialog(patient)"
-                          >
+                          <button class="doc-action-btn edit" pTooltip="Modifier" (click)="openEditPatient(patient)">
+                            <i class="pi pi-pencil"></i>
+                          </button>
+                          <button class="doc-action-btn consult" pTooltip="Consultation" (click)="openConsultationDialog(patient)">
                             <i class="pi pi-file-edit"></i>
+                          </button>
+                          <button class="doc-action-btn delete" pTooltip="Supprimer" (click)="confirmDeletePatient(patient)">
+                            <i class="pi pi-trash"></i>
                           </button>
                         </div>
                       </td>
@@ -412,7 +470,7 @@
                             <button
                               class="doc-action-btn consult"
                               pTooltip="Compléter"
-                              (click)="openConsultationDialog({ id: appt.patientId, firstName: '', lastName: '', email: '' }, appt.id)"
+                              (click)="openConsultationDialog({ id: appt.patientId, firstName: '', lastName: '', email: '', hospital: '', age: 0 }, appt.id)"
                             >
                               <i class="pi pi-file-edit"></i>
                             </button>
@@ -616,9 +674,9 @@
                 }
                 <div class="doc-pred-result-advice">
                   @if (result.prediction === 1) {
-                    <p>⚠️ Ce patient présente des indicateurs de risque élevé. Un suivi cardiologique urgent est recommandé.</p>
+                    <p>Ce patient présente des indicateurs de risque élevé. Un suivi cardiologique urgent est recommandé.</p>
                   } @else {
-                    <p>✅ Les paramètres cliniques indiquent un faible risque cardiovasculaire. Continuez le suivi préventif.</p>
+                    <p>Les paramètres cliniques indiquent un faible risque cardiovasculaire. Continuez le suivi préventif.</p>
                   }
                 </div>
               </div>
@@ -631,33 +689,277 @@
     </div><!-- /doc-content -->
 
     <!-- Settings panel -->
-    <div class="doc-settings-overlay" *ngIf="settingsPanelOpen()" (click)="toggleSettings()"></div>
+    @if (settingsPanelOpen()) {
+      <div class="doc-settings-overlay" (click)="toggleSettings()"></div>
+    }
     <aside class="doc-settings-panel" [class.open]="settingsPanelOpen()">
+ 
       <div class="doc-settings-header">
         <h3>Paramètres</h3>
-        <button class="doc-icon-btn" (click)="toggleSettings()">✕</button>
+        <button class="doc-icon-btn" (click)="toggleSettings()">
+          <i class="pi pi-times"></i>
+        </button>
       </div>
+ 
       <div class="doc-settings-body">
+ 
+        <!-- Profile summary -->
+        <span class="doc-settings-section-label">Profil</span>
+
+        <form [formGroup]="updateDoctorForm" class="doc-settings-form">
+
+          <div class="doc-form-group">
+            <label class="doc-form-label">Prénom</label>
+            <input pInputText formControlName="firstName" class="doc-form-input" />
+          </div>
+
+          <div class="doc-form-group">
+            <label class="doc-form-label">Nom</label>
+            <input pInputText formControlName="lastName" class="doc-form-input" />
+          </div>
+
+          <div class="doc-form-group">
+            <label class="doc-form-label">Email</label>
+            <input pInputText formControlName="email" class="doc-form-input" />
+          </div>
+
+          <div class="doc-form-group">
+            <label class="doc-form-label">Hôpital</label>
+            <input pInputText formControlName="hospital" class="doc-form-input" />
+          </div>
+
+          <!-- RPPS (READ ONLY) -->
+          <div class="doc-form-group">
+            <label class="doc-form-label">RPPS</label>            
+          </div>
+
+          <button
+            type="button"
+            class="doc-btn-primary doc-settings-save-btn"
+            (click)="submitUpdateDoctor()"
+          >
+            @if (submittingUpdateDoctor()) {
+              <i class="pi pi-spin pi-spinner"></i> Enregistrement...
+            } @else {
+              <i class="pi pi-save"></i> Enregistrer les modifications
+            }
+          </button>
+
+        </form>
+ 
+        <!-- Dark mode toggle -->
+        <span class="doc-settings-section-label">Apparence</span>
         <div class="doc-settings-item">
           <span>Mode sombre</span>
           <button class="doc-toggle-btn" [class.active]="isDark" (click)="toggleDark()">
             <span class="doc-toggle-knob"></span>
           </button>
         </div>
-        <div class="doc-settings-item">
-          <span>Email</span>
-          <span class="doc-settings-value">{{ doctorEmail() || '—' }}</span>
-        </div>
-        <div class="doc-settings-item">
-          <span>Rôle</span>
-          <span class="doc-settings-value">Médecin</span>
-        </div>
+ 
+        <!-- Change password -->
+        <span class="doc-settings-section-label" style="margin-top:20px">Sécurité</span>
+ 
+        <form [formGroup]="changePasswordForm" class="doc-settings-form">
+ 
+          <div class="doc-form-group">
+            <label class="doc-form-label">Mot de passe actuel</label>
+            <p-password
+              inputId="currentPassword"
+              formControlName="currentPassword"
+              styleClass="w-full"
+              inputStyle="{ width: '100%' }"
+              feedback="false"
+              toggleMask="true"
+              placeholder="••••••••"
+            />
+            @if (isFieldInvalid(changePasswordForm, 'currentPassword')) {
+              <span class="doc-field-error">Ce champ est requis.</span>
+            }
+          </div>
+ 
+          <div class="doc-form-group">
+            <label class="doc-form-label">Nouveau mot de passe</label>
+            <p-password
+              inputId="currentPassword"
+              formControlName="currentPassword"
+              styleClass="w-full"
+              inputStyle="{ width: '100%' }"
+              feedback="false"
+              toggleMask="true"
+              placeholder="••••••••"
+            />
+            @if (isFieldInvalid(changePasswordForm, 'newPassword')) {
+              <span class="doc-field-error">Minimum 8 caractères requis.</span>
+            }
+          </div>
+ 
+          <div class="doc-form-group">
+            <label class="doc-form-label">Confirmer le nouveau mot de passe</label>
+            <p-password
+              inputId="confirmPassword"
+              formControlName="confirmPassword"
+              styleClass="w-full cute-input"
+              inputStyle="{ width: '100%' }"
+              feedback="false"
+              toggleMask="true"
+              placeholder="••••••••"
+            />
+            @if (changePasswordForm.errors?.['mismatch'] && changePasswordForm.get('confirmPassword')?.touched) {
+              <span class="doc-field-error">Les mots de passe ne correspondent pas.</span>
+            }
+          </div>
+ 
+          <button
+            type="button"
+            class="doc-btn-primary doc-settings-save-btn"
+            (click)="submitChangePassword()"
+            [disabled]="changePasswordForm.invalid || submittingChangePassword()"
+          >
+            @if (submittingChangePassword()) {
+              <i class="pi pi-spin pi-spinner"></i> Enregistrement...
+            } @else {
+              <i class="pi pi-lock"></i> Modifier le mot de passe
+            }
+          </button>
+ 
+        </form>
+ 
       </div>
     </aside>
-
+ 
   </div><!-- /doc-main -->
-
+ 
 </div><!-- /doc-shell -->
+
+<!-- ══════════════════════════════════════════════════════════
+     ADD PATIENT DIALOG
+     ══════════════════════════════════════════════════════════ -->
+
+     <p-dialog
+  [visible]="addPatientVisible()"
+  (visibleChange)="addPatientVisible.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Ajouter un nouveau patient"
+  styleClass="doc-dialog"
+  [style]="{ width: '520px' }"
+>
+  <div class="doc-dialog-body">
+    <form [formGroup]="addPatientForm">
+ 
+      <div class="doc-add-patient-grid">
+ 
+        <div class="doc-form-group">
+          <label class="doc-form-label">Prénom <span class="doc-required">*</span></label>
+          <input
+            pInputText
+            formControlName="firstName"
+            placeholder="Jean"
+            class="doc-form-input"
+          />
+          @if (isFieldInvalid(addPatientForm, 'firstName')) {
+            <span class="doc-field-error">Prénom requis.</span>
+          }
+        </div>
+ 
+        <div class="doc-form-group">
+          <label class="doc-form-label">Nom <span class="doc-required">*</span></label>
+          <input
+            pInputText
+            formControlName="lastName"
+            placeholder="Dupont"
+            class="doc-form-input"
+          />
+          @if (isFieldInvalid(addPatientForm, 'lastName')) {
+            <span class="doc-field-error">Nom requis.</span>
+          }
+        </div>
+ 
+        <div class="doc-form-group doc-add-patient-full">
+          <label class="doc-form-label">Adresse e-mail <span class="doc-required">*</span></label>
+          <input
+            pInputText
+            formControlName="email"
+            type="email"
+            placeholder="patient@example.com"
+            class="doc-form-input"
+          />
+          @if (isFieldInvalid(addPatientForm, 'email')) {
+            <span class="doc-field-error">Adresse e-mail valide requise.</span>
+          }
+        </div>
+ 
+        <div class="doc-form-group">
+          <label class="doc-form-label">Téléphone</label>
+          <input
+            pInputText
+            formControlName="phone"
+            placeholder="+216 XX XXX XXX"
+            class="doc-form-input"
+          />
+        </div>
+ 
+        <div class="doc-form-group">
+          <label class="doc-form-label">Date de naissance</label>
+          <input
+            pInputText
+            type="date"
+            formControlName="dateOfBirth"
+            class="doc-form-input"
+          />
+        </div>
+ 
+        <div class="doc-form-group doc-add-patient-full">
+          <label class="doc-form-label">Adresse</label>
+          <input
+            pInputText
+            formControlName="address"
+            placeholder="Rue, Ville, Code postal"
+            class="doc-form-input"
+          />
+        </div>
+ 
+      </div>
+ 
+      <!-- Info notice -->
+      <div style="
+        background: rgba(16,185,129,0.07);
+        border: 1px solid rgba(16,185,129,0.2);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: var(--doc-text-secondary, #64748b);
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        margin-top: 4px;
+      ">
+        <i class="pi pi-info-circle" style="color:#10b981;font-size:15px;flex-shrink:0;margin-top:1px"></i>
+        <span>
+          Un <strong>dossier médical complet</strong> sera automatiquement créé et configuré pour ce patient par le système.
+        </span>
+      </div>
+ 
+    </form>
+  </div>
+ 
+  <ng-template pTemplate="footer">
+    <button class="doc-btn-secondary" (click)="addPatientVisible.set(false)">Annuler</button>
+    <button
+      class="doc-btn-primary"
+      (click)="submitAddPatient()"
+      [disabled]="addPatientForm.invalid || submittingAddPatient()"
+    >
+      @if (submittingAddPatient()) {
+        <i class="pi pi-spin pi-spinner"></i> Enregistrement...
+      } @else {
+        <i class="pi pi-user-plus"></i> Créer le patient
+      }
+    </button>
+  </ng-template>
+</p-dialog>
 
 <!-- ══════════════════════════════════════════════════════════
      CONSULTATION DIALOG

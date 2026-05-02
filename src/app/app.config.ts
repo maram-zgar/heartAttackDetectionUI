@@ -12,7 +12,6 @@ import { definePreset } from '@primeng/themes';
 import { routes } from './app.routes';
 import { authReducer } from './store/auth/auth.reducer';
 import { AuthEffects } from './store/auth/auth.effects';
-import { authInterceptor } from './core/auth/auth.interceptor';
 
 const emeraldPreset = definePreset(Aura, {
   semantic: {
@@ -38,7 +37,7 @@ export const appConfig: ApplicationConfig = {
 
     provideAnimationsAsync(),
 
-    provideHttpClient(withInterceptors([authInterceptor]), withFetch()),
+    provideHttpClient(withFetch()),
 
     provideStore({
       auth: authReducer,

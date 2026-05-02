@@ -1,4 +1,4 @@
-import { createActionGroup, emptyProps, props } from '@ngrx/store';
+import { createActionGroup, emptyProps, props, createAction } from '@ngrx/store';
 import { LoginRequest as LoginRequestModel }   from '../../shared/models/login-form';
 import { SignupRequest as SignupRequestModel }  from '../../shared/models/signup-form';
 import { UserProfile }    from '../../shared/models/user-profile.model';
@@ -58,3 +58,11 @@ export const AuthActions = createActionGroup({
   },
 });
 
+export const rehydrateAuth = createAction(
+  '[Auth] Rehydrate Auth',
+  props<{ 
+    accessToken: string; 
+    refreshToken: string | null; 
+    rememberMe: boolean 
+  }>()
+);

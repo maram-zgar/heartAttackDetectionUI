@@ -2,8 +2,10 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CanActivateFn, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { map, take } from 'rxjs';
+import { filter, map, take, timeout } from 'rxjs';
 import { selectIsAuthenticated } from '../../store/auth/auth.selectors';
+import { HttpClient } from '@angular/common/http';
+import { AuthService } from './auth.service';
 
 export const authGuard: CanActivateFn = () => {
   const store = inject(Store);
@@ -12,17 +14,19 @@ export const authGuard: CanActivateFn = () => {
   const isBrowser = isPlatformBrowser(platformId);
 
   return store.select(selectIsAuthenticated).pipe(
-    take(1),
+    filter((isAuthenticated) => isAuthenticated), // Wait for auth state to be determined
     map((isAuthenticated) => {
       if (isAuthenticated) return true;
       if (isBrowser && localStorage.getItem('access_token')) return true;
       return router.createUrlTree(['/auth/authenticate']);
-    })
+    }),
+    take(1),
   );
 };
 
 export const redirectGuard: CanActivateFn = () => {
   const store = inject(Store);
+  const authService = inject(AuthService);
   const router = inject(Router);
   const platformId = inject(PLATFORM_ID);
   const isBrowser = isPlatformBrowser(platformId);
@@ -31,16 +35,17 @@ export const redirectGuard: CanActivateFn = () => {
     take(1),
     map((isAuthenticated) => {
       if (isAuthenticated || (isBrowser && localStorage.getItem('access_token'))) {
-        // decode role from token to redirect correctly
+        // get the role from /me endpoint and redirect to the appropriate dashboard without decoding teh token on the client side
         try {
           const token = localStorage.getItem('access_token')!;
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const authorities: string[] = payload.authorities ?? payload.roles ?? [];
-          const role = authorities[0]?.replace('ROLE_', '');
+          authService.getUserProfile().subscribe((user) => {
+          const role = user.role;
           if (role === 'ADMIN') return router.createUrlTree(['/admin']);
           if (role === 'DOCTOR') return router.createUrlTree(['/doctor/dashboard']);
           if (role === 'PATIENT') return router.createUrlTree(['/patient/dashboard']);
-        } catch { /* fall through */ }
+          return router.createUrlTree(['/auth/authenticate']);
+          });
+        } catch {}
       }
       return router.createUrlTree(['/auth/authenticate']);
     })

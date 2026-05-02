@@ -15,7 +15,7 @@ export class AuthService {
   authenticate(request: { email: string; password: string }): Observable<{ accessToken: string; refreshToken: string }> {
     // Clear any stale/expired tokens before attempting login
     // This prevents the JwtAuthenticationFilter from crashing on expired tokens
-    this.clearTokens();
+    // this.clearTokens();
     
     return this.http.post<{ accessToken: string; refreshToken: string }>(
       `${this.baseUrl}/authenticate`,
@@ -32,9 +32,17 @@ export class AuthService {
     });
   }
   
+  logout(): Observable<any> {
+    localStorage.clear();
+    return this.http.post(`${this.baseUrl}/logout`, {});
+  }
+  
   // Calls GET /api/v1/auth/me to retrieve the current user's profile info (id, email, name, role)
   getUserProfile(): Observable<UserProfile> {
-    return this.http.get<UserProfile>(`${this.baseUrl}/me`);
+    const token = this.getAccessToken();
+    return this.http.get<UserProfile>(`${this.baseUrl}/me`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
+    });
   }
 
   refreshToken(): Observable<{ accessToken: string; refreshToken?: string }> {
@@ -44,10 +52,6 @@ export class AuthService {
       {},
       { headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }) }
     );
-  }
-
-  logout(): Observable<any> {
-    return this.http.post(`${this.baseUrl}/logout`, {});
   }
 
   getAccessToken(): string | null {
@@ -74,28 +78,28 @@ export class AuthService {
     if (!this.isBrowser) return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('rememberMe');
   }
 
   changePassword(request: { currentPassword: string; newPassword: string }): Observable<any> {
+    const token = this.getAccessToken();
     return this.http.post(`${this.baseUrl}/change-password`, {
       currentPassword: request.currentPassword,
       newPassword: request.newPassword,
+    }, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
     });
   }
 
-  getMe(): Observable<UserProfile> {
-    return this.http.get<UserProfile>(`${this.baseUrl}/me`);
-  }
-
-  updateProfile(request: { firstName: string; lastName: string }): Observable<UserProfile> {
+  // add access token to headers and call PUT /api/v1/auth/update-profile to update firstName and lastName
+  updateProfile(request: { firstName: string; lastName: string; hospital: string }): Observable<UserProfile> {
+    const token = this.getAccessToken();
     return this.http.put<UserProfile>(`${this.baseUrl}/update-profile`, {
       firstName: request.firstName,
       lastName: request.lastName,
+      hospital: request.hospital,
+    }, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
     });
   }
-
-  isLoggedIn(): boolean {
-    return !!this.accessToken;
-  }
-
 }

@@ -43,7 +43,7 @@ import { DoctorApiService } from '../../services/doctor-api.service';
     <div class="avatar-section">
       <div class="avatar-wrap" (click)="fileInput.click()">
         <p-avatar
-          [image]="previewUrl() || profile?.avatarUrl || ''"
+          [image]="previewUrl() || ''"
           [label]="initials()"
           shape="circle"
           size="xlarge"
@@ -53,7 +53,7 @@ import { DoctorApiService } from '../../services/doctor-api.service';
           <i class="pi pi-camera"></i>
         </div>
       </div>
-      <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
+      <input #fileInput type="file" accept="image/*" hidden />
       <div class="avatar-info">
         <span class="avatar-name">Dr. {{ profile?.firstName }} {{ profile?.lastName }}</span>
         <span class="avatar-email">{{ profile?.email }}</span>
@@ -249,22 +249,22 @@ export class ProfilePanelComponent implements OnChanges {
     return `${this.profile.firstName?.[0] ?? ''}${this.profile.lastName?.[0] ?? ''}`.toUpperCase();
   }
 
-  onFileSelected(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => this.previewUrl.set(e.target?.result as string);
-    reader.readAsDataURL(file);
+  // onFileSelected(event: Event) {
+  //   const file = (event.target as HTMLInputElement).files?.[0];
+  //   if (!file) return;
+  //   const reader = new FileReader();
+  //   reader.onload = e => this.previewUrl.set(e.target?.result as string);
+  //   reader.readAsDataURL(file);
 
-    this.api.uploadAvatar(file).subscribe({
-      next: res => {
-        this.profileUpdated.emit({ avatarUrl: res.avatarUrl });
-        this.successMsg.set('Photo de profil mise à jour.');
-        setTimeout(() => this.successMsg.set(null), 3000);
-      },
-      error: () => this.errorMsg.set('Erreur lors du téléchargement.')
-    });
-  }
+  //   this.api.uploadAvatar(file).subscribe({
+  //     next: res => {
+  //       this.profileUpdated.emit({ avatarUrl: res.avatarUrl });
+  //       this.successMsg.set('Photo de profil mise à jour.');
+  //       setTimeout(() => this.successMsg.set(null), 3000);
+  //     },
+  //     error: () => this.errorMsg.set('Erreur lors du téléchargement.')
+  //   });
+  // }
 
   save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }

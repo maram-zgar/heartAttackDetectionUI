@@ -1,6 +1,8 @@
 import { createReducer, on } from '@ngrx/store';
 import { AuthActions, AuthUser } from './auth.actions';
 import { UserProfile } from '../../shared/models/user-profile.model';
+import { rehydrateAuth } from '../../store/auth/auth.actions';
+
 
 export interface AuthState {
   user: UserProfile | null;
@@ -100,9 +102,20 @@ export const authReducer = createReducer(
   loading: false,
 })),
 
-on(AuthActions.loadProfileFailure, (state, { error }) => ({
-  ...state,
-  loading: false,
-  error,
-}))
+  on(AuthActions.loadProfileFailure, (state, { error }) => ({
+    ...state,
+    loading: false,
+    error,
+  })),
+
+  // Rehydrate auth state from localStorage
+  on(rehydrateAuth, (state, { accessToken, refreshToken, rememberMe }) => ({
+    ...state,
+    accessToken: accessToken,
+    refreshToken: refreshToken ?? null,
+    isAuthenticated: !!accessToken,
+    rememberMe: rememberMe ?? false,
+    loading: false,
+    error: null,
+  }))
 );
