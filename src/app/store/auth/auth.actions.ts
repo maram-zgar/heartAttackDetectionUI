@@ -32,7 +32,7 @@ export const AuthActions = createActionGroup({
 
     // Login
     'Login': props<{ request: LoginRequestModel }>(),
-    'Login Success': props<{ accessToken: string; refreshToken?: string; rememberMe: boolean }>(),
+    'Login Success': props<{ accessToken: string; refreshToken: string; rememberMe: boolean }>(),
     'Login Failure': props<{ error: string }>(),
 
     // Signup

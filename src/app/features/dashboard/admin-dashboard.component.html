@@ -113,7 +113,7 @@
             <div class="adm-stat-body">
               <span class="adm-stat-label">Médecins enregistrés</span>
               @if (loadingStats()) { <p-skeleton width="4rem" height="2rem" /> } 
-              @else { <span class="adm-stat-value">{{ stats().totalDoctors }}</span> }
+              @else { <span class="adm-stat-value">{{ doctors().length }}</span> }
             </div>
             <div class="adm-stat-trend up"><i class="pi pi-arrow-up-right"></i> + ce mois</div>
           </div>
@@ -168,9 +168,9 @@
                       </td>
                       <td class="adm-email-cell">{{ doc.email }}</td>
                       <td>
-                        <span class="adm-status-badge" [class.active]="doc.active" [class.inactive]="!doc.active">
+                        <span class="adm-status-badge active">
                           <span class="adm-status-dot"></span>
-                          {{ doc.active ? 'Actif' : 'Inactif' }}
+                          Actif
                         </span>
                       </td>
                       <td>
@@ -251,9 +251,9 @@
                       <td class="adm-email-cell">{{ doc.email }}</td>
                       <td class="adm-date-cell">{{ doc.createdAt | date:'dd/MM/yyyy' }}</td>
                       <td>
-                        <span class="adm-status-badge" [class.active]="doc.active" [class.inactive]="!doc.active">
+                        <span class="adm-status-badge active">
                           <span class="adm-status-dot"></span>
-                          {{ doc.active ? 'Actif' : 'Inactif' }}
+                          Actif
                         </span>
                       </td>
                       <td>

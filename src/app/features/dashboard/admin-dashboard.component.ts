@@ -1,5 +1,5 @@
 // admin-dashboard.component.ts
-import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, signal, computed, ChangeDetectorRef, inject } from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -56,6 +56,7 @@ import { rehydrateAuth } from '../../store/auth/auth.actions';
   templateUrl: './admin-dashboard.component.html',
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
+    private readonly cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
   // ── UI state ───────────────────────────────────────────────────────────────
 
   /** Whether the sidebar is in icon-only (collapsed) mode */
@@ -137,6 +138,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.buildForms();
     this.loadDarkMode();
+    // Wait for token to be available before fetching
+    if (isPlatformBrowser(this.platformId)) {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        // Token not ready — redirect to login or wait
+        console.warn('No access token found, aborting data load');
+        return;
+      }
+    }
     this.loadAllData();
   }
 
@@ -200,9 +210,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
    * Each request has its own error handler so one failure doesn't block others.
    */
   private loadAllData(): void {
-    this.fetchStats();
+    //this.fetchStats();
     this.fetchDoctors();
-    this.fetchActivity();
+    //this.fetchActivity();
   }
 
   /**
@@ -233,7 +243,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .pipe(
         takeUntil(this.destroy$),
         catchError((err) => {
-          console.error('catchError hit:', err);
+          console.error('catchError hit:', err.status, err.error);
           return of<Doctor[]>([]);
         }),
         finalize(() => {
@@ -245,6 +255,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .subscribe((data) => {
         console.log('subscribe next, data length:', data.length);
         this.doctors.set(data);
+        this.cdr.detectChanges();
       });
   }
 
@@ -261,7 +272,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         catchError(() => of<ActivityEntry[]>([])),
         finalize(() => this.loadingActivity.set(false)),
       )
-      .subscribe((data) => this.activity.set(data));
+      .subscribe((data) => {
+        this.activity.set(data);
+        this.cdr.detectChanges();
+      });
   }
 
   /**
@@ -293,10 +307,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
           this.createDoctorVisible = false;
           this.createDoctorForm.reset();
           this.fetchDoctors();
+          this.cdr.detectChanges();
         },
         error: (err) => {
           const detail = err?.error?.message ?? 'Impossible de créer le compte médecin.';
           this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+          this.cdr.detectChanges();
         },
       });
   }
@@ -328,6 +344,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                 summary: 'Supprimé',
                 detail: 'Le médecin a été retiré de la plateforme.',
               });
+              this.cdr.detectChanges();
             },
             error: () => {
               this.messageService.add({
@@ -335,6 +352,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                 summary: 'Erreur',
                 detail: 'La suppression a échoué. Réessayez.',
               });
+              this.cdr.detectChanges();
             },
           });
       },
@@ -398,7 +416,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   /** Quick stat: number of active doctors in the loaded list */
   get activeDoctorCount(): number {
-    return this.doctors().filter((d) => d.active).length;
+    return this.doctors().length;
   }
 
   // testUploadImage(event: any): void {

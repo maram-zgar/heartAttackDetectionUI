@@ -86,80 +86,51 @@ export class AuthEffects {
   );
 
   login$ = createEffect(() =>
-  this.actions$.pipe(
-    ofType(AuthActions.login),
-    tap(({ request }) => console.log(' [AUTH EFFECTS] LOGIN ACTION for:', request.email)),
-    switchMap(({ request }) =>
-      this.authService.authenticate(request).pipe(
-        tap((res: any) => {
-          console.log(' [AUTH EFFECTS] LOGIN HTTP SUCCESS');
-          console.log(' [AUTH EFFECTS] accessToken:', res.accessToken?.substring(0, 20) + '...');
-          console.log(' [AUTH EFFECTS] refreshToken:', res.refreshToken?.substring(0, 20) + '...');
-        }),
-        map((res: any) => {
-          return AuthActions.loginSuccess({
-            accessToken: res.accessToken,
-            refreshToken: res.refreshToken,
-            rememberMe: request.rememberMe ?? false,
-          });
-        }),
-        catchError((err) => {
-          console.error(' [AUTH EFFECTS] LOGIN HTTP FAILED');
-          console.error(' [AUTH EFFECTS] Status:', err.status);
-          console.error(' [AUTH EFFECTS] Error:', err.error);
-          return of(AuthActions.loginFailure({
-            error: err.error?.message || 'Échec de la connexion.',
-          }));
-        })
-      )
-    )
-  )
-);
+    this.actions$.pipe(
+      ofType(AuthActions.login),
+      switchMap(({ request }) =>
+        this.authService.authenticate(request).pipe(
+          tap((res: any) => {
+            // ✅ Store tokens HERE, synchronously, before loginSuccess dispatches
+            if (this.isBrowser && res.accessToken && res.refreshToken) {
+              localStorage.setItem('access_token', res.accessToken);
+              localStorage.setItem('refresh_token', res.refreshToken);
+              if (request.rememberMe) {
+                localStorage.setItem('rememberMe', 'true');
+              }
+            }
+          }),
+          map((res: any) =>
+            AuthActions.loginSuccess({
+              accessToken: res.accessToken,
+              refreshToken: res.refreshToken,
+              rememberMe: request.rememberMe ?? false,
+            }),
+          ),
+          catchError((err) =>
+            of(AuthActions.loginFailure({
+              error: err.error?.message || 'Échec de la connexion.',
+            }))
+          ),
+        ),
+      ),
+    ),
+  );
 
   loginSuccess$ = createEffect(
-  () =>
-    this.actions$.pipe(
-      ofType(AuthActions.loginSuccess),
-      tap(({ accessToken, refreshToken, rememberMe }) => {
-        console.log(' [AUTH EFFECTS] LOGIN SUCCESS ACTION RECEIVED');
-        console.log(' [AUTH EFFECTS] accessToken:', accessToken?.substring(0, 20) + '...');
-        console.log(' [AUTH EFFECTS] refreshToken:', refreshToken?.substring(0, 20) + '...');
-        console.log(' [AUTH EFFECTS] rememberMe:', rememberMe);
-        
-        // Decode and log JWT claims
-        if (accessToken) {
-          console.log('\n DECODING ACCESS TOKEN:');
-          const tokenInfo = JwtDecoder.getTokenInfo(accessToken);
-          console.log(' Token valid:', tokenInfo.isValid);
-          console.log(' Token expired:', tokenInfo.isExpired);
-          console.log(' Token expires at:', tokenInfo.expiresAt);
-          console.log(' Token role:', tokenInfo.role);
-          console.log(' Token authorities:', JSON.stringify(tokenInfo.authorities));
-          console.log(' Full claims:', JSON.stringify(tokenInfo.claims, null, 2));
-        }
-        
-        if (this.isBrowser) {
-          if (rememberMe) {
-            localStorage.setItem('rememberMe', 'true');
-            console.log(' [AUTH EFFECTS] Saved rememberMe=true');
-          } else {
+    () =>
+      this.actions$.pipe(
+        ofType(AuthActions.loginSuccess),
+        tap(({ rememberMe }) => {
+          if (!this.isBrowser) return;
+          if (!rememberMe) {
             localStorage.removeItem('rememberMe');
-            console.log(' [AUTH EFFECTS] Cleared rememberMe');
           }
-          if (accessToken && refreshToken) {
-            localStorage.setItem('access_token', accessToken);
-            localStorage.setItem('refresh_token', refreshToken);
-            console.log(' [AUTH EFFECTS] Tokens saved to localStorage');
-            console.log(' [AUTH EFFECTS] Verify - access_token in storage:', !!localStorage.getItem('access_token'));
-            console.log(' [AUTH EFFECTS] Verify - refresh_token in storage:', !!localStorage.getItem('refresh_token'));
-          }
-        } else {
-          console.log(' [AUTH EFFECTS] Not in browser - cannot save tokens');
-        }
-      }),
-    ),
-  { dispatch: false }
-);
+          // Tokens already saved in login$ tap above
+        }),
+      ),
+    { dispatch: false },
+  );
 
   loadProfileAfterLogin$ = createEffect(() =>
     this.actions$.pipe(
@@ -174,7 +145,7 @@ export class AuthEffects {
           }),
           map((profile) => AuthActions.loadProfileSuccess({ profile })),
           catchError((err) => {
-            console.error(' [AUTH EFFECTS] Failed to load profile:', err.status, err.error);
+            console.error(' [AUTH EFFECTS] Failed to load profile:', err.error);
             return of(AuthActions.loadProfileFailure({
               error: err.error?.message || 'Impossible de récupérer le profil utilisateur.',
             }));

@@ -33,7 +33,7 @@ export const routes: Routes = [
 //  {
 //    path: 'patient/dashboard',
 //    loadComponent: () =>
-//      import('./features/dashboard/patient-dashboard.component').then(
+//      import('./features/patient/patient-dashboard.component').then(
 //        (m) => m.PatientDashboardComponent
 //      ),
 //    canActivate: [authGuard],
