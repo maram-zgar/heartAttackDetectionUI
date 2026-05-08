@@ -48,6 +48,13 @@ export class AuthEffects {
              })
             ),
             catchError((err) => {
+              if (accessToken) {
+                return of(rehydrateAuth({
+                  accessToken,
+                  refreshToken,
+                  rememberMe: false,
+                }));
+              }
               console.error(' [AUTH EFFECTS] Token refresh failed:', err.status, err.error);
               return of(AuthActions.refreshTokenFailure());
             })
@@ -161,8 +168,11 @@ export class AuthEffects {
         ofType(AuthActions.loadProfileSuccess),
         tap(({ profile }) => {
           console.log(' [AUTH EFFECTS] Routing to dashboard for role:', profile.role);
-          const destination = this.getDashboardRoute(profile.role);
-          this.router.navigateByUrl(destination);
+          const isAuthPage = this.router.url.includes('/auth');
+          if (isAuthPage) {
+            const destination = this.getDashboardRoute(profile.role);
+            this.router.navigateByUrl(destination);
+          }
         })
       ),
     { dispatch: false }
@@ -218,12 +228,12 @@ export class AuthEffects {
     this.actions$.pipe(
       ofType(AuthActions.logoutSuccess),
       tap(() => {
-        this.authService.clearTokens();
         if (this.isBrowser) {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('rememberMe');
         }
+        this.authService.clearTokens();
         this.router.navigateByUrl('/auth/authenticate');
       })
     ),

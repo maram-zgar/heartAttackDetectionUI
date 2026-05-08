@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { Subject, forkJoin, of } from 'rxjs';
-import { takeUntil, catchError, finalize } from 'rxjs/operators';
+import { takeUntil, catchError, finalize, take, filter } from 'rxjs/operators';
 import { AdminService, Doctor, AppStats, ActivityEntry } from '../../core/http/admin.service';
 
 import { ButtonModule } from 'primeng/button';
@@ -25,6 +25,7 @@ import { BadgeModule } from 'primeng/badge';
 import { FormsModule } from '@angular/forms';
 import { TitleFromIdPipe } from './dashboard.pipes';
 import { rehydrateAuth } from '../../store/auth/auth.actions';
+import { selectAccessToken } from '../../store/auth/auth.selectors';
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -129,25 +130,25 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private readonly adminService: AdminService,
     private readonly confirmationService: ConfirmationService,
     private readonly messageService: MessageService,
-    private readonly store: Store,
+    //private readonly store: Store,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
+  private store = inject(Store);
   ngOnInit(): void {
-    this.buildForms();
-    this.loadDarkMode();
-    // Wait for token to be available before fetching
-    if (isPlatformBrowser(this.platformId)) {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        // Token not ready — redirect to login or wait
-        console.warn('No access token found, aborting data load');
-        return;
-      }
-    }
-    this.loadAllData();
+    this.store.select(selectAccessToken).pipe(
+      filter(token => !!token),
+      take(1)
+    ).subscribe(() => {
+      this.loadAllData();
+      this.buildForms();
+      this.loadDarkMode();
+    });
+    
+    
+    
   }
 
   ngOnDestroy(): void {

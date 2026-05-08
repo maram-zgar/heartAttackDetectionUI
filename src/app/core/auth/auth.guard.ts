@@ -1,9 +1,9 @@
 import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CanActivateFn, Router } from '@angular/router';
-import { Store } from '@ngrx/store';
-import { filter, map, take, timeout } from 'rxjs';
-import { selectIsAuthenticated } from '../../store/auth/auth.selectors';
+import { createSelector, Store } from '@ngrx/store';
+import { combineLatest, filter, map, take, timeout } from 'rxjs';
+import { selectAuthState, selectIsAuthenticated } from '../../store/auth/auth.selectors';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from './auth.service';
 
@@ -52,30 +52,25 @@ export const redirectGuard: CanActivateFn = () => {
   );
 };
 
+export const selectAuthUser = createSelector(selectAuthState, (state) => state.user);
 
 // Prevents logged-in users from accessing login/signup pages
 export const guestGuard: CanActivateFn = () => {
   const store = inject(Store);
   const router = inject(Router);
-  const platformId = inject(PLATFORM_ID);
-  const isBrowser = isPlatformBrowser(platformId);
 
-  return store.select(selectIsAuthenticated).pipe(
+  return combineLatest([
+    store.select(selectIsAuthenticated),
+    store.select(selectAuthUser), // the UserProfile from your reducer
+  ]).pipe(
     take(1),
-    map((isAuthenticated) => {
-      if (isAuthenticated || (isBrowser && localStorage.getItem('access_token'))) {
-        // Already logged in — redirect away from auth pages
-        try {
-          const token = localStorage.getItem('access_token')!;
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const authorities: string[] = payload.authorities ?? payload.roles ?? [];
-          const role = authorities[0]?.replace('ROLE_', '');
-          if (role === 'ADMIN') return router.createUrlTree(['/admin']);
-          if (role === 'DOCTOR') return router.createUrlTree(['/doctor/dashboard']);
-          if (role === 'PATIENT') return router.createUrlTree(['/patient/dashboard']);
-        } catch { /* fall through */ }
-      }
-      // Not logged in — allow access to login/signup
+    map(([isAuthenticated, user]) => {
+      if (!isAuthenticated || !user) return true; // not logged in — allow
+
+      // Use the role from the store, not from decoding a JWT
+      if (user.role === 'ADMIN') return router.createUrlTree(['/admin']);
+      if (user.role === 'DOCTOR') return router.createUrlTree(['/doctor/dashboard']);
+      if (user.role === 'PATIENT') return router.createUrlTree(['/patient/dashboard']);
       return true;
     })
   );

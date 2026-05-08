@@ -1051,7 +1051,7 @@
   <div class="doc-dialog-body" *ngIf="selectedPatientDetail()">
     <div class="doc-dialog-patient-info">
       <div class="doc-dialog-avatar">
-        {{ (selectedPatientDetail()!.firstName?.[0] ?? '') + (selectedPatientDetail()!.lastName?.[0] ?? '') | uppercase }}
+        {{ (selectedPatientDetail()?.firstName?.charAt(0) ?? '') + (selectedPatientDetail()?.lastName?.charAt(0) ?? '') | uppercase }}
       </div>
       <div>
         <p class="doc-dialog-patient-name">{{ selectedPatientDetail()!.firstName }} {{ selectedPatientDetail()!.lastName }}</p>

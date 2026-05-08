@@ -50,22 +50,22 @@ export class AdminService {
 
 
   getStats(): Observable<AppStats> {
-    return this.http.get<AppStats>(`${this.baseUrl}/stats`, this.getAuthHeaders());
+    return this.http.get<AppStats>(`${this.baseUrl}/stats`);
   }
 
   getDoctors(): Observable<Doctor[]> {
-    return this.http.get<Doctor[]>(`${this.baseUrl}/doctors`, this.getAuthHeaders());
+    return this.http.get<Doctor[]>(`${this.baseUrl}/doctors`);
   }
 
   getActivity(): Observable<ActivityEntry[]> {
-    return this.http.get<ActivityEntry[]>(`${this.baseUrl}/activity`, this.getAuthHeaders());
+    return this.http.get<ActivityEntry[]>(`${this.baseUrl}/activity`);
   }
 
   createDoctor(doctor: any): Observable<Doctor> {
-    return this.http.post<Doctor>(`${this.baseUrl}/register-doctor`, doctor, this.getAuthHeaders());
+    return this.http.post<Doctor>(`${this.baseUrl}/register-doctor`, doctor);
   }
 
   deleteDoctor(id: string | number): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/doctors/${id}`, this.getAuthHeaders());
+    return this.http.delete<void>(`${this.baseUrl}/doctors/${id}`);
   }
 }

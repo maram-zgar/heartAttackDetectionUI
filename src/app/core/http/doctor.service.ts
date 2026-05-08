@@ -54,38 +54,38 @@ export class DoctorService {
   }
 
   getPatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>('/api/v1/patients', this.getAuthHeaders());
+    return this.http.get<Patient[]>('/api/v1/patients');
   }
 
   createPatient(data: Partial<Patient>): Observable<Patient> {
-    return this.http.post<Patient>('/api/v1/patients', data, this.getAuthHeaders());
+    return this.http.post<Patient>('/api/v1/patients', data);
   }
 
   getPatientById(id: number): Observable<Patient> {
-    return this.http.get<Patient>(`/api/v1/patients/${id}`, this.getAuthHeaders());
+    return this.http.get<Patient>(`/api/v1/patients/${id}`);
   }
 
   getAppointments(): Observable<Appointment[]> {
-    return this.http.get<Appointment[]>('/api/v1/appointments', this.getAuthHeaders());
+    return this.http.get<Appointment[]>('/api/v1/appointments');
   }
 
   completeConsultation(data: ConsultationComplete): Observable<any> {
-    return this.http.post('/api/v1/doctors/consultation-complete', data, this.getAuthHeaders());
+    return this.http.post('/api/v1/doctors/consultation-complete', data);
   }
 
   changePassword(data: ChangePasswordRequest): Observable<any> {
-    return this.http.post('/api/v1/doctors/change-password', data, this.getAuthHeaders());
+    return this.http.post('/api/v1/doctors/change-password', data);
   }
 
   updateDoctor(data: any): Observable<any> {
-    return this.http.put('/api/v1/doctors', data, this.getAuthHeaders());
+    return this.http.put('/api/v1/doctors', data);
   }
 
   deletePatient(id: string | number): Observable<any> {
-    return this.http.delete(`/api/v1/patients/${id}`, this.getAuthHeaders());
+    return this.http.delete(`/api/v1/patients/${id}`);
   }
 
   updatePatient(id: string | number, data: Partial<Patient>): Observable<Patient> {
-    return this.http.put<Patient>(`/api/v1/patients/${id}`, data, this.getAuthHeaders());
+    return this.http.put<Patient>(`/api/v1/patients/${id}`, data);
   }
 }
