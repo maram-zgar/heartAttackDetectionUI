@@ -1,0 +1,128 @@
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  dateTime: string;
+  hospital: string;
+  status: AppointmentStatus;
+  patientEmail?: string;
+  patientFirstName?: string;
+  patientLastName?: string;
+  doctorFirstName?: string;
+  doctorLastName?: string;
+}
+
+export interface AppointmentRequest {
+  patientId: string;
+  doctorId: string;
+  dateTime: string;
+  hospital: string;
+  status?: AppointmentStatus;
+  patientEmail?: string;
+  patientFirstName?: string;
+}
+
+export interface AvailableSlotsResponse {
+  doctorId: string;
+  date: string;
+  slots: string[];
+}
+
+export interface DoctorAvailability {
+  id?: string;
+  doctorId: string;
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+}
+
+export type DayOfWeek =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY';
+
+export interface PatientSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  hospital?: string;
+  dateOfBirth?: string;
+  phone?: string;
+  gender?: string;
+  doctorId?: string;
+  status?: 'stable' | 'critical' | 'monitoring' | 'discharged';
+  riskLevel?: 'low' | 'medium' | 'high';
+}
+
+export interface MedicalFile {
+  id: string;
+  patientId: string;
+  patientFirstName?: string;
+  patientLastName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  consultations: Consultation[];
+  notes?: MedicalNote[];
+}
+
+export interface Consultation {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  dateDeConsultation: string;
+  doctorFirstName?: string;
+  doctorLastName?: string;
+  notes?: string;
+  diagnosis?: string;
+  predictionResult?: PredictionResult;
+}
+
+export interface ConsultationSaveRequest {
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  notes: string;
+  diagnosis?: string;
+  predictionResult?: PredictionResult;
+}
+
+export interface MedicalNote {
+  id: string;
+  createdAt: string;
+  content: string;
+  authorId?: string;
+  authorName?: string;
+}
+
+export interface PredictionPayload {
+  age: number;
+  sex: boolean;
+  chestPainType: number;
+  restingBloodPressure: number;
+  cholesterol: number;
+  fastingBloodSugar: boolean;
+  restingECG: number;
+  maxHeartRateAchieved: number;
+  exerciseInducedAngina: boolean;
+  STDepressionInducedByExercise: number;
+  slopeOfPeakExerciseSTSegment: number;
+  nbOfMajorVessels: number;
+  thalassemia: number;
+}
+
+export interface PredictionResult {
+  prediction: number;
+  probability?: number;
+  riskLabel?: string;
+  createdAt?: string;
+  payload?: PredictionPayload;
+}  

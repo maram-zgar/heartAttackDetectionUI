@@ -10,17 +10,19 @@ import {
   ChangeDetectorRef,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Subject } from 'rxjs';
-import { takeUntil, catchError, finalize } from 'rxjs/operators';
+import { takeUntil, catchError, finalize, filter } from 'rxjs/operators';
 import { of } from 'rxjs';
-
+import { TableModule } from 'primeng/table';
+import { TabsModule } from 'primeng/tabs';
+import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
 import { AvatarModule } from 'primeng/avatar';
 import { BadgeModule } from 'primeng/badge';
 import { TooltipModule } from 'primeng/tooltip';
-import { SkeletonModule } from 'primeng/skeleton';
+import { Skeleton } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 import { DialogModule } from 'primeng/dialog';
 import { TextareaModule } from 'primeng/textarea';
@@ -29,173 +31,300 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  NonNullableFormBuilder,
+  FormControl,
+} from '@angular/forms';
+import { PasswordModule } from 'primeng/password';
+import { InputNumberModule } from 'primeng/inputnumber';
 
+// ── Shared model types – single source of truth ────────────────────────────
+import {
+  Appointment,
+  AppointmentRequest,
+  Consultation,
+  MedicalFile,
+  PredictionPayload,
+  PredictionResult,
+} from '../../shared/models/medical.model';
+
+// ── DoctorService – Patient CRUD + legacy consultation helper only ──────────
 import {
   DoctorService,
   Patient,
-  Appointment,
   ConsultationComplete,
 } from '../../core/http/doctor.service';
-import { selectCurrentUser } from '../../store/auth/auth.selectors';
-import { TitleFromIdPipe } from '../../pipes/title-from-id-pipe';
-import { AuthService } from '../../core/auth/auth.service';
 
-type NavSection = 'overview' | 'patients' | 'appointments' | 'prediction';
+import { selectCurrentUser } from '../../store/auth/auth.selectors';
+import { AuthService } from '../../core/auth/auth.service';
+import { AppointmentService } from '../../core/http/appointment.service';
+import { MedicalFileService } from '../../core/http/medical-file.service';
+import { PredictionService } from '../../core/http/prediction.service';
+import { SelectModule } from 'primeng/select';
+import { UserProfile } from '../../shared/models/user-profile.model';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Local types
+// ─────────────────────────────────────────────────────────────────────────────
+
+type NavSection = 'overview' | 'patients' | 'appointments' | 'prediction' | 'medical-file';
+type MonitorRange = 'day' | 'week' | 'month';
+
+interface SelectOption<T> {
+  label: string;
+  value: T;
+}
+
+/** Explicit shape for the appointment form so bracket-access is typed. */
+interface AppointmentFormValue {
+  patientId: string;
+  date: Date;
+  hospital: string;
+}
 
 @Component({
   selector: 'app-doctor-dashboard',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     ReactiveFormsModule,
+    FormsModule,
     RouterLink,
     ButtonModule,
     AvatarModule,
     BadgeModule,
     TooltipModule,
-    SkeletonModule,
     TagModule,
-    DialogModule,
-    TextareaModule,
-    InputTextModule,
+    TableModule,
+    TabsModule,
+    SelectModule,
+    DatePickerModule,
     ToastModule,
     ConfirmDialogModule,
-    TitleFromIdPipe,
+    DialogModule,
+    InputTextModule,
+    InputNumberModule,
+    TextareaModule,
+    PasswordModule,
+    Skeleton,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './doctor-dashboard.component.html',
   styleUrls: ['./doctor-dashboard.component.scss'],
 })
 export class DoctorDashboardComponent implements OnInit, OnDestroy {
-  private store = inject(Store);
-  private router = inject(Router);
-  private doctorService = inject(DoctorService);
-  private messageService = inject(MessageService);
-  private confirmationService = inject(ConfirmationService);
-  private fb = inject(FormBuilder);
-  private readonly cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
+
+  // ── DI ────────────────────────────────────────────────────────────────────
+  private readonly store = inject(Store);
+  private readonly doctorService = inject(DoctorService);
+  private readonly appointmentService = inject(AppointmentService);
+  private readonly medicalFileService = inject(MedicalFileService);
+  private readonly predictionService = inject(PredictionService);
+  private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
+  private readonly fb = inject(FormBuilder);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly authService = inject(AuthService);
   @Inject(PLATFORM_ID) private platformId: object = inject(PLATFORM_ID);
-  private destroy$ = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
 
-  // ── UI State ───────────────────────────────────────────────────
-  sidebarCollapsed = signal(false);
-  settingsPanelOpen = signal(false);
-  activeNav = signal<NavSection>('overview');
-  isDark = false;
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Static select options
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Loading States ─────────────────────────────────────────────
-  loadingPatients = signal(false);
-  loadingAppointments = signal(false);
-  submittingConsultation = signal(false);
-  submittingAddPatient = signal(false);
-  submittingChangePassword = signal(false);
-
-  // ── Data Signals ───────────────────────────────────────────────
-  patients = signal<Patient[]>([]);
-  appointments = signal<Appointment[]>([]);
-  errorPatients = signal<string | null>(null);
-  errorAppointments = signal<string | null>(null);
-
-  // ── Computed Stats ────────────────────────────────────────────
-  totalPatients = computed(() => this.patients().length);
-  criticalPatients = computed(() => this.patients().filter((p) => p.status === 'critical').length);
-  todayAppointments = computed(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return this.appointments().filter((a) => a.date?.startsWith(today)).length;
-  });
-  pendingAppointments = computed(
-    () => this.appointments().filter((a) => a.status === 'scheduled').length,
-  );
-  completedToday = computed(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return this.appointments().filter((a) => a.date?.startsWith(today) && a.status === 'completed')
-      .length;
-  });
-
-  // ── Nouveaux signaux pour l'édition
-  editPatientVisible = signal(false);
-  submittingEditPatient = signal(false);
-  editPatientForm!: FormGroup;
-  selectedPatientForEdit = signal<Patient | null>(null);
-
-  // ── List of today's appointments for template use (avoids new Date() in template)
-  todayAppointmentsList = computed(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return this.appointments()
-      .filter((a) => a.date?.startsWith(today))
-      .slice(0, 5);
-  });
-
-  // ── User Info ──────────────────────────────────────────────────
-  currentUser$ = this.store.select(selectCurrentUser);
-  doctorName = signal('Médecin');
-  doctorEmail = signal('');
-  doctorInitials = signal('MD');
-
-  // ── Dialog States ──────────────────────────────────────────────
-  consultationDialogVisible = signal(false);
-  selectedPatient = signal<Patient | null>(null);
-  consultationForm!: FormGroup;
-  patientDetailVisible = signal(false);
-  selectedPatientDetail = signal<Patient | null>(null);
-  addPatientVisible = signal(false);
-  addPatientForm!: FormGroup;
-
-  // ── Prediction State ───────────────────────────────────────────
-  predictionForm!: FormGroup;
-  predictionResult = signal<{ prediction: number; probability?: number } | null>(null);
-  predictionLoading = signal(false);
-  predictionError = signal<string | null>(null);
-
-  // ── Change Password (settings panel) ─────────────────────────────────────
-  changePasswordForm!: FormGroup;
-
-  // ── Navigation Items ───────────────────────────────────────────
-  readonly navItems = [
-    { id: 'overview', label: "Vue d'ensemble", icon: 'pi-home' },
-    { id: 'patients', label: 'Patients', icon: 'pi-users' },
-    { id: 'appointments', label: 'Rendez-vous', icon: 'pi-calendar' },
-    { id: 'prediction', label: 'Prédiction IA', icon: 'pi-chart-bar' },
+  readonly rangeOptions: SelectOption<MonitorRange>[] = [
+    { label: 'Jour',    value: 'day' },
+    { label: 'Semaine', value: 'week' },
+    { label: 'Mois',    value: 'month' },
   ];
 
-  // ── Profile forum ────────────────────────────────────────────────
-  submittingUpdateDoctor = signal(false);
-  updateDoctorForm!: FormGroup;
+  readonly patientSexOptions: SelectOption<number>[] = [
+    { label: 'Homme', value: 1 },
+    { label: 'Femme', value: 0 },
+  ];
 
-  private readonly authService = inject(AuthService);
+  readonly binaryOptions: SelectOption<boolean>[] = [
+    { label: 'Oui', value: true },
+    { label: 'Non', value: false },
+  ];
+
+  readonly chestPainOptions: SelectOption<number>[] = [
+    { label: 'Angine Typique',       value: 0 },
+    { label: 'Angine Atypique',      value: 1 },
+    { label: 'Douleur Non-Angineuse', value: 2 },
+    { label: 'Asymptomatique',       value: 3 },
+  ];
+
+  readonly ecgOptions: SelectOption<number>[] = [
+    { label: 'Normal',                  value: 0 },
+    { label: 'Anomalie ST-T',           value: 1 },
+    { label: 'Hypertrophie Ventriculaire', value: 2 },
+  ];
+
+  readonly navItems: { id: NavSection; label: string; icon: string }[] = [
+    { id: 'overview',      label: "Vue d'ensemble", icon: 'pi-home' },
+    { id: 'patients',      label: 'Patients',        icon: 'pi-users' },
+    { id: 'appointments',  label: 'Rendez-vous',     icon: 'pi-calendar' },
+    { id: 'prediction',    label: 'Analyse IA',      icon: 'pi-chart-line' },
+    { id: 'medical-file',  label: 'Dossiers',        icon: 'pi-folder-open' },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Signals – loading
+  // ─────────────────────────────────────────────────────────────────────────
+
+  readonly loadingPatients      = signal(false);
+  readonly loadingAppointments  = signal(false);
+  readonly submitting           = signal(false);
+  readonly predicting           = signal(false);
+  readonly checkingAvailability = signal(false);
+  readonly submittingConsultation  = signal(false);
+  readonly submittingAddPatient    = signal(false);
+  readonly submittingEditPatient   = signal(false);
+  readonly submittingChangePassword = signal(false);
+  readonly submittingUpdateDoctor  = signal(false);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Signals – data
+  // ─────────────────────────────────────────────────────────────────────────
+
+  readonly currentUser       = signal<UserProfile | null>(null);
+  readonly patients          = signal<Patient[]>([]);
+  readonly appointments      = signal<Appointment[]>([]);
+  readonly medicalFile       = signal<MedicalFile | null>(null);
+  readonly selectedAppointment = signal<Appointment | null>(null);
+  readonly selectedPatient     = signal<Patient | null>(null);
+  readonly selectedPatientDetail  = signal<Patient | null>(null);
+  readonly selectedPatientForEdit = signal<Patient | null>(null);
+  readonly monitorRange = signal<MonitorRange>('day');
+  readonly monitorDate  = signal(new Date());
+  readonly availableSlots = signal<string[]>([]);
+  readonly errorPatients     = signal<string | null>(null);
+  readonly errorAppointments = signal<string | null>(null);
+
+  readonly predictionResult = signal<(PredictionResult & {
+    createdAt?: string;
+    payload?: PredictionPayload;
+  }) | null>(null);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Signals – UI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  readonly sidebarCollapsed  = signal(false);
+  readonly settingsPanelOpen = signal(false);
+  readonly activeNav         = signal<NavSection>('overview');
+
+  readonly appointmentDialogVisible  = signal(false);
+  readonly consultationDialogVisible = signal(false);
+  readonly patientDetailVisible      = signal(false);
+  readonly addPatientVisible         = signal(false);
+  readonly editPatientVisible        = signal(false);
+
+  isDark = false;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Doctor display info
+  // ─────────────────────────────────────────────────────────────────────────
+
+  readonly doctorName     = signal('Médecin');
+  readonly doctorEmail    = signal('');
+  readonly doctorInitials = signal('MD');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Computed
+  // ─────────────────────────────────────────────────────────────────────────
+
+  readonly patientOptions = computed<SelectOption<string>[]>(() =>
+    this.patients().map(p => ({
+      label: `${p.firstName} ${p.lastName}`,
+      value: String(p.id),
+    })),
+  );
+
+  readonly doctorAppointments = computed(() => {
+    const doctorId = this.currentUser()?.id;
+    return doctorId
+      ? this.appointments().filter(a => String(a.doctorId) === String(doctorId))
+      : this.appointments();
+  });
+
+  readonly monitoredAppointments = computed(() => {
+    const target = this.startOfDay(this.monitorDate());
+    const range  = this.monitorRange();
+    return this.doctorAppointments()
+      .filter(a => this.isInRange(new Date(a.dateTime), target, range))
+      .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
+  });
+
+  readonly completedAppointments = computed(() =>
+    this.doctorAppointments().filter(a => a.status === 'COMPLETED'),
+  );
+
+  readonly pendingAppointments = computed(() =>
+    this.appointments().filter(a => a.status === 'PENDING'),
+  );
+
+  readonly todayAppointments = computed(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return this.appointments().filter(a => a.dateTime?.startsWith(today));
+  });
+
+  readonly todayAppointmentsList = computed(() =>
+    this.todayAppointments().slice(0, 5),
+  );
+
+  readonly filteredPatientAppointments = computed(() => {
+    const pid = this.selectedPatient()?.id;
+    if (!pid) return [];
+    return this.appointments().filter(a => String(a.patientId) === String(pid));
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Forms  (typed with explicit FormGroup generics to avoid index-type errors)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Typed explicitly so controls['patientId'] etc. are accepted. */
+  appointmentForm!: FormGroup<{
+    patientId: FormControl<string>;
+    date:      FormControl<Date>;
+    hospital:  FormControl<string>;
+  }>;
+
+  consultationForm!:    FormGroup;
+  addPatientForm!:      FormGroup;
+  editPatientForm!:     FormGroup;
+  changePasswordForm!:  FormGroup;
+  predictionForm!:      FormGroup;
+  updateDoctorForm!:    FormGroup;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  LIFECYCLE
   // ─────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    this.buildForm();
+    this.buildForms();
+
     if (isPlatformBrowser(this.platformId)) {
       this.loadDarkMode();
     }
 
+    this.store.select(selectCurrentUser).pipe(
+      filter(user => !!user),
+      takeUntil(this.destroy$),
+    ).subscribe(user => {
+      this.currentUser.set(user);
+      this.doctorEmail.set(user.email);
+      this.doctorName.set(`${user.firstName} ${user.lastName}`);
+      this.doctorInitials.set(this.buildInitials(user.firstName, user.lastName));
+      this.loadAllData();
+    });
+
     this.loadDoctorProfile();
-
-    // Also try decoding from localStorage JWT if store user is null
-    if (isPlatformBrowser(this.platformId)) {
-      const token = localStorage.getItem('access_token');
-      if (token && !this.doctorEmail()) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          this.doctorEmail.set(payload.sub ?? '');
-          this.doctorInitials.set(this.buildInitials(undefined, undefined, this.doctorEmail()));
-          this.doctorName.set(this.doctorEmail());
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
-    //this.markDoctorActive();
-
-    this.loadAllData();
   }
 
   ngOnDestroy(): void {
@@ -203,342 +332,360 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ── Form builder ───────────────────────────────────────────────
-  private buildForm(): void {
-    this.updateDoctorForm = this.fb.group({
-      id: [''],
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      hospital: [''],
-      numeroRPPS: [{ value: '', disabled: true }],
-    });
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Medical file
+  // ─────────────────────────────────────────────────────────────────────────
 
-    this.consultationForm = this.fb.group({
-      appointmentId: [0],
-      notes: ['', Validators.required],
-      diagnosis: [''],
-      nextAppointment: [''],
-    });
-
-    this.addPatientForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      phone: [''],
-      dateOfBirth: [''],
-      address: [''],
-    });
-
-    this.changePasswordForm = this.fb.group(
-      {
-        currentPassword: ['', Validators.required],
-        newPassword: ['', [Validators.required, Validators.minLength(8)]],
-        confirmPassword: ['', Validators.required],
-      },
-      { validators: this.passwordsMatch },
-    );
-
-    this.predictionForm = this.fb.group({
-      age: [58, [Validators.required, Validators.min(1), Validators.max(120)]],
-      sex: [true, Validators.required],
-      chestPainType: [0, Validators.required],
-      restingBloodPressure: [120, Validators.required],
-      cholesterol: [200, Validators.required],
-      fastingBloodSugar: [false, Validators.required],
-      restingECG: [0, Validators.required],
-      maxHeartRateAchieved: [150, Validators.required],
-      exerciseInducedAngina: [false, Validators.required],
-      STDepressionInducedByExercise: [0, Validators.required],
-      slopeOfPeakExerciseSTSegment: [1, Validators.required],
-      nbOfMajorVessels: [0, Validators.required],
-      thalassemia: [2, Validators.required],
-    });
-
-    this.editPatientForm = this.fb.group({
-      id: [''], // Nécessaire pour l'updateBackend
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      phone: [''],
-      dateOfBirth: [''],
-      address: [''],
-      hospital: [''],
-    });
-  }
-
-  private passwordsMatch(group: FormGroup): { [key: string]: boolean } | null {
-    const np = group.get('newPassword')?.value;
-    const cp = group.get('confirmPassword')?.value;
-    return np && cp && np !== cp ? { mismatch: true } : null;
-  }
-
-  // ── Data loading ───────────────────────────────────────────────
-
-  loadAllData(): void {
-    this.loadPatients();
-    this.loadAppointments();
-  }
-
-  loadDoctorProfile(): void {
-    this.authService
-      .getUserProfile()
+  openMedicalFile(patient: Patient): void {
+    this.selectedPatient.set(patient);
+    this.activeNav.set('medical-file');
+    this.medicalFile.set(null);
+    this.medicalFileService
+      .getByPatientId(String(patient.id))
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (profile) => {
-          this.doctorName.set(`${profile.firstName} ${profile.lastName}`);
-          this.doctorEmail.set(profile.email);
-          this.doctorInitials.set(this.buildInitials(profile.firstName, profile.lastName));
+        next: file  => this.medicalFile.set(this.withSortedConsultations(file)),
+        error: ()   => this.showError('Impossible de charger le dossier médical.'),
+      });
+  }
 
-          this.updateDoctorForm.patchValue({
-            id: profile.id,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            email: profile.email,
-            hospital: profile.hospital,
-            numeroRPPS: profile.numeroRPPS,
-          });
-        },
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Appointments
+  // ─────────────────────────────────────────────────────────────────────────
+
+  openAppointmentDialog(patient?: Patient): void {
+    this.availableSlots.set([]);
+    this.appointmentForm.reset({
+      patientId: patient ? String(patient.id) : '',
+      date:      new Date(),
+      hospital:  this.currentUser()?.hospital ?? '',
+    });
+    this.appointmentDialogVisible.set(true);
+    this.checkAvailability();
+  }
+
+  checkAvailability(): void {
+    const doctorId = this.currentUser()?.id;
+    const date     = this.appointmentForm.controls.date.value;
+    if (!doctorId || !date) return;
+
+    this.checkingAvailability.set(true);
+    this.appointmentService
+      .getAvailableSlots(doctorId, this.toDateOnly(date))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.checkingAvailability.set(false)))
+      .subscribe({
+        next:  r  => this.availableSlots.set(r.slots),
         error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erreur',
-            detail: 'Impossible de charger les informations du médecin.',
-          });
+          this.availableSlots.set([]);
+          this.showError('Disponibilité du médecin introuvable pour cette date.');
         },
       });
   }
 
-  loadPatients(): void {
-    this.loadingPatients.set(true);
-    this.errorPatients.set(null);
-
-    this.doctorService
-      .getPatients()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (patients) => {
-          this.patients.set(patients);
-          this.loadingPatients.set(false);
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          this.errorPatients.set(err?.error?.message ?? 'Impossible de charger les patients.');
-          this.patients.set([]);
-          this.loadingPatients.set(false);
-          this.cdr.detectChanges();
-        },
-      });
-  }
-
-  loadAppointments(): void {
-    this.loadingAppointments.set(true);
-    this.errorAppointments.set(null);
-
-    this.doctorService
-      .getAppointments()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (appointments) => {
-          this.appointments.set(appointments);
-          this.loadingAppointments.set(false);
-          this.cdr.detectChanges();
-        },
-        error: (err) => {
-          this.errorAppointments.set(
-            err?.error?.message ?? 'Impossible de charger les rendez-vous.',
-          );
-          this.appointments.set([]);
-          this.loadingAppointments.set(false);
-          this.cdr.detectChanges();
-        },
-      });
-  }
-
-  // ── Submit Updates ──────────────────────────────────────────────────────────────────────
-
-  submitUpdateDoctor(): void {
-    if (this.updateDoctorForm.invalid) {
-      this.updateDoctorForm.markAllAsTouched();
+  submitAppointment(): void {
+    if (this.appointmentForm.invalid || !this.currentUser()) {
+      this.appointmentForm.markAllAsTouched();
       return;
     }
 
-    this.submittingUpdateDoctor.set(true);
+    const patient = this.patients().find(
+      p => String(p.id) === this.appointmentForm.controls.patientId.value,
+    );
+    if (!patient) { this.showError('Patient introuvable.'); return; }
 
-    const payload = this.updateDoctorForm.getRawValue();
+    const request: AppointmentRequest = {
+      patientId:        String(patient.id),
+      doctorId:         this.currentUser()!.id,
+      dateTime:         this.toDateOnly(this.appointmentForm.controls.date.value),
+      hospital:         this.appointmentForm.controls.hospital.value,
+      patientEmail:     patient.email,
+      patientFirstName: patient.firstName,
+    };
 
-    this.doctorService
-      .updateDoctor(payload)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => this.submittingUpdateDoctor.set(false)),
-      )
+    this.submitting.set(true);
+    this.appointmentService.create(request).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submitting.set(false)),
+    ).subscribe({
+      next: appt => {
+        this.appointments.update(list => [appt, ...list]);
+        this.appointmentDialogVisible.set(false);
+        this.messageService.add({
+          severity: 'success',
+          summary:  'Rendez-vous créé',
+          detail:   'La demande est enregistrée selon la disponibilité du médecin.',
+        });
+      },
+      error: (err: unknown) => this.showError(this.errorMessage(err)),
+    });
+  }
+
+  confirmAppointment(appointment: Appointment): void {
+    this.appointmentService
+      .confirm(appointment.id, this.toAppointmentIdentity(appointment))
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Profil mis à jour',
-            detail: 'Modifications enregistrées',
-          });
+        next:  updated => this.replaceAppointment(updated),
+        error: (err: unknown) => this.showError(this.errorMessage(err)),
+      });
+  }
 
-          // update UI instantly
-          this.doctorName.set(`${payload.firstName} ${payload.lastName}`);
-          this.doctorEmail.set(payload.email);
-          this.doctorInitials.set(this.buildInitials(payload.firstName, payload.lastName));
+  cancelAppointment(appointment: Appointment): void {
+    this.appointmentService
+      .cancel(appointment.id, this.toAppointmentIdentity(appointment))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next:  updated => this.replaceAppointment(updated),
+        error: (err: unknown) => this.showError(this.errorMessage(err)),
+      });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Consultation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  openConsultation(appointment: Appointment): void {
+    const patient = this.patients().find(
+      p => String(p.id) === String(appointment.patientId),
+    );
+    if (patient) this.selectedPatient.set(patient);
+    this.selectedAppointment.set(appointment);
+    this.predictionResult.set(null);
+    this.consultationForm.reset({ diagnosis: '', notes: '' });
+    this.consultationDialogVisible.set(true);
+  }
+
+  runPrediction(): void {
+    if (this.predictionForm.invalid) { this.predictionForm.markAllAsTouched(); return; }
+
+    this.predicting.set(true);
+    this.predictionService
+      .predict(this.predictionForm.getRawValue() as PredictionPayload)
+      .pipe(takeUntil(this.destroy$), finalize(() => this.predicting.set(false)))
+      .subscribe({
+        next: result => this.predictionResult.set({
+          ...result,
+          createdAt: new Date().toISOString(),
+          payload:   this.predictionForm.getRawValue() as PredictionPayload,
+        }),
+        error: () => this.showError('Le service de prédiction est indisponible.'),
+      });
+  }
+
+  saveConsultation(): void {
+    const appointment = this.selectedAppointment();
+    if (!appointment || this.consultationForm.invalid) {
+      this.consultationForm.markAllAsTouched();
+      return;
+    }
+
+    this.submitting.set(true);
+    this.appointmentService
+      .complete(appointment.id, this.toAppointmentIdentity(appointment))
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: completed => {
+          this.replaceAppointment(completed);
+          this.medicalFileService.saveConsultation({
+            appointmentId:   completed.id,
+            patientId:       completed.patientId,
+            doctorId:        completed.doctorId,
+            notes:           this.consultationForm.controls['notes'].value,
+            diagnosis:       this.consultationForm.controls['diagnosis'].value,
+            predictionResult: this.predictionResult() ?? undefined,
+          }).pipe(takeUntil(this.destroy$), finalize(() => this.submitting.set(false)))
+            .subscribe({
+              next:  consultation => this.afterConsultationSaved(consultation),
+              error: () => this.showError(
+                'Le rendez-vous est terminé, mais les notes doivent être vérifiées côté dossier.',
+              ),
+            });
         },
-        error: () => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erreur',
-            detail: 'Échec de mise à jour',
-          });
+        error: (err: unknown) => {
+          this.submitting.set(false);
+          this.showError(this.errorMessage(err));
         },
       });
   }
+
   // ─────────────────────────────────────────────────────────────────────────
-  //  STATUS — mark doctor active when they log in
+  //  Patient CRUD
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Calls PATCH /api/v1/doctors/me/status?active=true via the DoctorService.
-   * This updates the doctor's `active` flag in the database so the admin
-   * dashboard reflects "Actif" immediately after sign-in.
-   * The call is fire-and-forget; failures are silently swallowed so they
-   * never block dashboard initialization.
-   */
-  /**private markDoctorActive(): void {
-    this.doctorService.markActive()
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError(() => of(null)),
-      )
-      .subscribe();
-  }*/
+  openAddPatient(): void {
+    this.addPatientForm.reset();
+    this.addPatientVisible.set(true);
+  }
 
-  // ── Patient methods ────────────────────────────────────────────────
+  submitAddPatient(): void {
+    if (this.addPatientForm.invalid) { this.addPatientForm.markAllAsTouched(); return; }
+
+    this.submittingAddPatient.set(true);
+    this.doctorService.createPatient(this.addPatientForm.value).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingAddPatient.set(false)),
+    ).subscribe({
+      next: created => {
+        this.patients.update(list => [...list, created]);
+        this.messageService.add({
+          severity: 'success',
+          summary:  'Patient ajouté',
+          detail:   `${created.firstName} ${created.lastName} a été enregistré.`,
+        });
+        this.addPatientVisible.set(false);
+        this.addPatientForm.reset();
+        this.loadPatients();
+      },
+      error: err => {
+        const detail = err?.error?.message ?? "Impossible d'ajouter le patient.";
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+      },
+    });
+  }
+
   openEditPatient(patient: Patient): void {
     this.selectedPatientForEdit.set(patient);
-    this.editPatientForm.patchValue({
-      ...patient,
-    });
+    this.editPatientForm.patchValue({ ...patient });
     this.editPatientVisible.set(true);
   }
 
   submitEditPatient(): void {
-    if (this.editPatientForm.invalid) {
-      this.editPatientForm.markAllAsTouched();
-      return;
-    }
+    if (this.editPatientForm.invalid) { this.editPatientForm.markAllAsTouched(); return; }
 
     this.submittingEditPatient.set(true);
-
     const { id, ...data } = this.editPatientForm.value;
 
-    this.doctorService
-      .updatePatient(id, data)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => this.submittingEditPatient.set(false)),
-      )
-      .subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Succès',
-            detail: 'Patient mis à jour.',
-          });
-          this.editPatientVisible.set(false);
-          this.loadPatients();
-        },
-        error: () =>
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erreur',
-            detail: 'Échec de la mise à jour.',
-          }),
-      });
+    this.doctorService.updatePatient(id, data).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingEditPatient.set(false)),
+    ).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Succès', detail: 'Patient mis à jour.' });
+        this.editPatientVisible.set(false);
+        this.loadPatients();
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Échec de la mise à jour.' }),
+    });
   }
 
   confirmDeletePatient(patient: Patient): void {
     this.confirmationService.confirm({
-      message: `Êtes-vous sûr de vouloir supprimer le patient ${patient.firstName} ${patient.lastName} ? Cette action est irréversible.`,
-      header: 'Confirmation de suppression',
-      icon: 'pi pi-exclamation-triangle',
+      message:  `Supprimer ${patient.firstName} ${patient.lastName} ? Cette action est irréversible.`,
+      header:   'Confirmation de suppression',
+      icon:     'pi pi-exclamation-triangle',
       acceptLabel: 'Oui, supprimer',
       rejectLabel: 'Annuler',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
-        this.doctorService
-          .deletePatient(patient.id)
-          .pipe(takeUntil(this.destroy$))
+        this.doctorService.deletePatient(patient.id).pipe(takeUntil(this.destroy$))
           .subscribe({
-            next: () => {
-              this.messageService.add({
-                severity: 'success',
-                summary: 'Succès',
-                detail: 'Patient supprimé.',
-              });
-              this.loadPatients(); // Rafraîchit la liste
+            next:  () => {
+              this.messageService.add({ severity: 'success', summary: 'Succès', detail: 'Patient supprimé.' });
+              this.loadPatients();
             },
-            error: () =>
-              this.messageService.add({
-                severity: 'error',
-                summary: 'Erreur',
-                detail: 'Impossible de supprimer ce patient.',
-              }),
+            error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer ce patient.' }),
           });
       },
     });
   }
 
-  // ── Navigation ────────────────────────────────────────────────
-
-  navigateTo(section: NavSection): void {
-    this.activeNav.set(section);
+  openPatientDetail(patient: Patient): void {
+    this.selectedPatientDetail.set(patient);
+    this.patientDetailVisible.set(true);
   }
 
-  submitPrediction(): void {
-    if (this.predictionForm.invalid) return;
-    this.predictionLoading.set(true);
-    this.predictionError.set(null);
-    this.predictionResult.set(null);
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Doctor profile
+  // ─────────────────────────────────────────────────────────────────────────
 
-    const body = this.predictionForm.value;
-    fetch('http://127.0.0.1:8000/predict', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        this.predictionResult.set(data);
-        this.predictionLoading.set(false);
-      })
-      .catch((err) => {
-        this.predictionError.set(err?.message ?? 'Erreur de connexion au serveur de prédiction.');
-        this.predictionLoading.set(false);
-      });
+  submitUpdateDoctor(): void {
+    if (this.updateDoctorForm.invalid) { this.updateDoctorForm.markAllAsTouched(); return; }
+
+    this.submittingUpdateDoctor.set(true);
+    const payload = this.updateDoctorForm.getRawValue();
+
+    this.doctorService.updateDoctor(payload).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingUpdateDoctor.set(false)),
+    ).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Profil mis à jour', detail: 'Modifications enregistrées' });
+        this.doctorName.set(`${payload.firstName} ${payload.lastName}`);
+        this.doctorEmail.set(payload.email);
+        this.doctorInitials.set(this.buildInitials(payload.firstName, payload.lastName));
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Échec de mise à jour' }),
+    });
   }
 
-  toggleSidebar(): void {
-    this.sidebarCollapsed.update((v) => !v);
+  submitChangePassword(): void {
+    if (this.changePasswordForm.invalid) { this.changePasswordForm.markAllAsTouched(); return; }
+
+    this.submittingChangePassword.set(true);
+    const { currentPassword, newPassword } = this.changePasswordForm.value;
+
+    this.doctorService.changePassword({ currentPassword, newPassword }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingChangePassword.set(false)),
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary:  'Mot de passe modifié',
+          detail:   'Votre mot de passe a été mis à jour avec succès.',
+        });
+        this.changePasswordForm.reset();
+        this.settingsPanelOpen.set(false);
+      },
+      error: err => {
+        const detail = err?.error?.message ?? 'Échec de la modification du mot de passe.';
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+      },
+    });
   }
 
-  toggleSettings(): void {
-    this.settingsPanelOpen.update((v) => !v);
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Legacy consultation dialog (kept for backwards compat)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  openConsultationDialog(patient: Patient, appointmentId = 0): void {
+    this.selectedPatient.set(patient);
+    this.consultationForm.patchValue({ appointmentId, notes: '', diagnosis: '' });
+    this.consultationDialogVisible.set(true);
   }
 
-  // ── Dark mode ────────────────────────────────────────────────
-
-  private loadDarkMode(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
-      document.body.classList.toggle('dark-mode', this.isDark);
+  submitConsultation(): void {
+    if (!this.consultationForm.get('notes')?.value?.trim()) {
+      this.messageService.add({ severity: 'warn', summary: 'Champ requis', detail: 'Veuillez ajouter des notes.' });
+      return;
     }
+    this.submittingConsultation.set(true);
+    const formValue = this.consultationForm.value as ConsultationComplete;
+    this.doctorService.completeConsultation(formValue).pipe(
+      takeUntil(this.destroy$),
+      catchError(err => {
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: err?.error?.message ?? 'La soumission a échoué.' });
+        return of(null);
+      }),
+      finalize(() => this.submittingConsultation.set(false)),
+    ).subscribe(result => {
+      if (result !== null) {
+        this.messageService.add({ severity: 'success', summary: 'Consultation complétée', detail: 'Enregistrée avec succès.' });
+        this.consultationDialogVisible.set(false);
+        this.loadAppointments();
+      }
+    });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Navigation / UI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  navigateTo(section: NavSection): void { this.activeNav.set(section); }
+  toggleSidebar(): void  { this.sidebarCollapsed.update(v => !v); }
+  toggleSettings(): void { this.settingsPanelOpen.update(v => !v); }
+
+  loadAll(): void { this.loadAllData(); }
 
   toggleDark(): void {
     this.isDark = !this.isDark;
@@ -549,148 +696,21 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  //  ADD PATIENT
+  //  Display helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Opens the "Ajouter un patient" dialog and resets the form.
-   */
-  openAddPatient(): void {
-    this.addPatientForm.reset();
-    this.addPatientVisible.set(true);
+  patientName(patientId: string | number): string {
+    const p = this.patients().find(x => String(x.id) === String(patientId));
+    return p ? `${p.firstName} ${p.lastName}` : 'Patient';
   }
 
-  /**
-   * Submits the add-patient form.
-   * The backend auto-creates a fully configured medical file (dossier médical)
-   * for the new patient via POST /api/v1/patients.
-   */
-  submitAddPatient(): void {
-    if (this.addPatientForm.invalid) {
-      this.addPatientForm.markAllAsTouched();
-      return;
-    }
-
-    this.submittingAddPatient.set(true);
-    this.doctorService
-      .createPatient(this.addPatientForm.value)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => this.submittingAddPatient.set(false)),
-      )
-      .subscribe({
-        next: (created) => {
-          this.patients.update((list) => [...list, created]);
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Patient ajouté',
-            detail: `${created.firstName} ${created.lastName} a été enregistré et son dossier médical créé.`,
-          });
-          this.addPatientVisible.set(false);
-          this.addPatientForm.reset();
-          this.loadPatients(); // refresh from server
-        },
-        error: (err) => {
-          const detail = err?.error?.message ?? "Impossible d'ajouter le patient.";
-          this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
-        },
-      });
+  patientEmail(patientId: string | number): string {
+    return this.patients().find(x => String(x.id) === String(patientId))?.email ?? '';
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  //  CHANGE PASSWORD
-  // ─────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Submits the change-password form via the doctor service.
-   * Endpoint: POST /api/v1/auth/change-password
-   */
-  submitChangePassword(): void {
-    if (this.changePasswordForm.invalid) {
-      this.changePasswordForm.markAllAsTouched();
-      return;
-    }
-
-    this.submittingChangePassword.set(true);
-    const { currentPassword, newPassword } = this.changePasswordForm.value;
-
-    this.doctorService
-      .changePassword({ currentPassword, newPassword })
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => this.submittingChangePassword.set(false)),
-      )
-      .subscribe({
-        next: () => {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Mot de passe modifié',
-            detail: 'Votre mot de passe a été mis à jour avec succès.',
-          });
-          this.changePasswordForm.reset();
-          this.settingsPanelOpen.set(false);
-        },
-        error: (err) => {
-          const detail = err?.error?.message ?? 'Échec de la modification du mot de passe.';
-          this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
-        },
-      });
+  initials(first?: string, last?: string): string {
+    return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase() || 'PT';
   }
-
-  // ── Patient actions ────────────────────────────────────────────
-
-  openPatientDetail(patient: Patient): void {
-    this.selectedPatientDetail.set(patient);
-    this.patientDetailVisible.set(true);
-  }
-
-  openConsultationDialog(patient: Patient, appointmentId = 0): void {
-    this.selectedPatient.set(patient);
-    this.consultationForm.patchValue({ appointmentId, notes: '', diagnosis: '' });
-    this.consultationDialogVisible.set(true);
-  }
-
-  submitConsultation(): void {
-    if (!this.consultationForm.get('notes')?.value?.trim()) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Champ requis',
-        detail: 'Veuillez ajouter des notes pour la consultation.',
-      });
-      return;
-    }
-    this.submittingConsultation.set(true);
-    const formValue = this.consultationForm.value as ConsultationComplete;
-    this.doctorService
-      .completeConsultation(formValue)
-      .pipe(
-        takeUntil(this.destroy$),
-        catchError((err) => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Erreur',
-            detail: err?.error?.message ?? 'La soumission a échoué.',
-          });
-          return of(null);
-        }),
-        finalize(() => {
-          this.submittingConsultation.set(false);
-        }),
-      )
-      .subscribe((result) => {
-        if (result !== null) {
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Consultation complétée',
-            detail: 'La consultation a été enregistrée avec succès.',
-          });
-          this.consultationDialogVisible.set(false);
-          this.loadAppointments(); // refresh
-        }
-      });
-  }
-
-  // ── Helper methods ────────────────────────────────────────────
 
   buildInitials(first?: string, last?: string, email?: string): string {
     if (first && last) return (first[0] + last[0]).toUpperCase();
@@ -699,96 +719,268 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return 'MD';
   }
 
-  isFieldInvalid(form: FormGroup, field: string): boolean {
-    const ctrl = form.get(field);
-    return !!(ctrl && ctrl.invalid && ctrl.touched);
+  statusLabel(status: string | undefined): string {
+    const map: Record<string, string> = {
+      PENDING: 'En attente', CONFIRMED: 'Confirmé', CANCELLED: 'Annulé', COMPLETED: 'Terminé',
+    };
+    return status ? (map[status] ?? status) : 'Inconnu';
   }
 
-  getStatusSeverity(status?: string): 'success' | 'danger' | 'warn' | 'info' | 'secondary' {
-    switch (status) {
-      case 'stable':
-        return 'success';
-      case 'critical':
-        return 'danger';
-      case 'monitoring':
-        return 'warn';
-      case 'discharged':
-        return 'secondary';
-      default:
-        return 'info';
-    }
+  statusSeverity(status: string | undefined): 'success' | 'danger' | 'warn' | 'info' | 'secondary' {
+    const map: Record<string, 'success' | 'danger' | 'warn' | 'info' | 'secondary'> = {
+      PENDING: 'warn', CONFIRMED: 'info', CANCELLED: 'danger', COMPLETED: 'success',
+    };
+    return status ? (map[status] ?? 'secondary') : 'secondary';
   }
 
-  getStatusLabel(status?: string): string {
-    switch (status) {
-      case 'stable':
-        return 'Stable';
-      case 'critical':
-        return 'Critique';
-      case 'monitoring':
-        return 'Surveillance';
-      case 'discharged':
-        return 'Sorti';
-      default:
-        return 'Inconnu';
-    }
-  }
-
-  getRiskLabel(risk?: string): string {
-    switch (risk) {
-      case 'low':
-        return 'Faible';
-      case 'medium':
-        return 'Moyen';
-      case 'high':
-        return 'Élevé';
-      default:
-        return '—';
-    }
-  }
-
-  getAppointmentStatusLabel(status?: string): string {
-    switch (status) {
-      case 'scheduled':
-        return 'Planifié';
-      case 'completed':
-        return 'Complété';
-      case 'cancelled':
-        return 'Annulé';
-      default:
-        return '—';
-    }
-  }
-
-  getAppointmentStatusSeverity(
-    status?: string,
-  ): 'success' | 'danger' | 'warn' | 'info' | 'secondary' {
-    switch (status) {
-      case 'scheduled':
-        return 'info';
-      case 'completed':
-        return 'success';
-      case 'cancelled':
-        return 'danger';
-      default:
-        return 'secondary';
-    }
+  riskText(result?: PredictionResult | null): string {
+    if (!result) return 'Aucune prédiction';
+    return result.prediction === 1 ? 'Risque élevé' : 'Risque faible';
   }
 
   formatDate(dateStr?: string): string {
     if (!dateStr) return '—';
     try {
-      return new Date(dateStr).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
+      return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch { return dateStr; }
   }
 
   skeletonArray(n: number): number[] {
     return Array.from({ length: n }, (_, i) => i);
+  }
+
+  isFieldInvalid(form: FormGroup, field: string): boolean {
+    const ctrl = form.get(field);
+    return !!(ctrl?.invalid && ctrl.touched);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Data loading
+  // ─────────────────────────────────────────────────────────────────────────
+
+  loadAllData(): void {
+    this.loadPatients();
+    this.loadAppointments();
+  }
+
+  loadDoctorProfile(): void {
+    this.authService.getUserProfile().pipe(takeUntil(this.destroy$)).subscribe({
+      next: profile => {
+        this.doctorName.set(`${profile.firstName} ${profile.lastName}`);
+        this.doctorEmail.set(profile.email);
+        this.doctorInitials.set(this.buildInitials(profile.firstName, profile.lastName));
+        this.currentUser.set(profile as unknown as UserProfile);
+        this.updateDoctorForm.patchValue({
+          id:         profile.id,
+          firstName:  profile.firstName,
+          lastName:   profile.lastName,
+          email:      profile.email,
+          hospital:   (profile as any).hospital,
+          numeroRPPS: (profile as any).numeroRPPS,
+        });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les informations du médecin.' }),
+    });
+  }
+
+  loadPatients(): void {
+    this.loadingPatients.set(true);
+    this.errorPatients.set(null);
+    this.doctorService.getPatients().pipe(takeUntil(this.destroy$)).subscribe({
+      next: patients => {
+        this.patients.set(patients);
+        this.loadingPatients.set(false);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.errorPatients.set(err?.error?.message ?? 'Impossible de charger les patients.');
+        this.patients.set([]);
+        this.loadingPatients.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  loadAppointments(): void {
+    this.loadingAppointments.set(true);
+    this.errorAppointments.set(null);
+    this.appointmentService.findAll().pipe(takeUntil(this.destroy$)).subscribe({
+      next: appointments => {
+        this.appointments.set(appointments);
+        this.loadingAppointments.set(false);
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        this.errorAppointments.set(err?.error?.message ?? 'Impossible de charger les rendez-vous.');
+        this.appointments.set([]);
+        this.loadingAppointments.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Private helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private afterConsultationSaved(consultation: Consultation): void {
+    this.consultationDialogVisible.set(false);
+    this.messageService.add({ severity: 'success', summary: 'Consultation enregistrée', detail: 'Ajoutée au dossier médical.' });
+    const current = this.medicalFile();
+    if (current && String(current.patientId) === String(consultation.patientId)) {
+      this.medicalFile.set(this.withSortedConsultations({
+        ...current,
+        consultations: [consultation, ...current.consultations],
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+  }
+
+  private replaceAppointment(updated: Appointment): void {
+    this.appointments.update(list => list.map(a => a.id === updated.id ? updated : a));
+  }
+
+  private toAppointmentIdentity(appointment: Appointment): Partial<AppointmentRequest> {
+    const patient = this.patients().find(p => String(p.id) === String(appointment.patientId));
+    return {
+      patientId:        String(appointment.patientId),
+      doctorId:         appointment.doctorId,
+      dateTime:         appointment.dateTime,
+      hospital:         appointment.hospital,
+      patientEmail:     patient?.email     ?? appointment.patientEmail,
+      patientFirstName: patient?.firstName ?? appointment.patientFirstName,
+    };
+  }
+
+  private withSortedConsultations(file: MedicalFile): MedicalFile {
+    return {
+      ...file,
+      consultations: [...file.consultations].sort(
+        (a, b) => new Date(b.dateDeConsultation).getTime() - new Date(a.dateDeConsultation).getTime(),
+      ),
+    };
+  }
+
+  private isInRange(value: Date, start: Date, range: MonitorRange): boolean {
+    const day   = this.startOfDay(value).getTime();
+    const begin = start.getTime();
+    if (range === 'day') return day === begin;
+    if (range === 'week') {
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      return day >= begin && day < end.getTime();
+    }
+    return value.getFullYear() === start.getFullYear() && value.getMonth() === start.getMonth();
+  }
+
+  private startOfDay(value: Date): Date {
+    const d = new Date(value);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  private toDateOnly(value: Date): string {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private showError(detail: string): void {
+    this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+  }
+
+  private errorMessage(error: unknown): string {
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const body = (error as { error?: { message?: string } }).error;
+      return body?.message ?? 'Action impossible.';
+    }
+    return 'Action impossible.';
+  }
+
+  private loadDarkMode(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
+      document.body.classList.toggle('dark-mode', this.isDark);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  Form builder
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private buildForms(): void {
+    // Typed nonNullable form – controls are accessed via .controls.X directly
+    const nnfb = this.fb.nonNullable;
+    this.appointmentForm = nnfb.group({
+      patientId: nnfb.control('',         Validators.required),
+      date:      nnfb.control(new Date(), Validators.required),
+      hospital:  nnfb.control('',         Validators.required),
+    });
+
+    this.consultationForm = this.fb.group({
+      diagnosis: ['', Validators.required],
+      notes:     ['', Validators.required],
+    });
+
+    this.addPatientForm = this.fb.group({
+      firstName:   ['', Validators.required],
+      lastName:    ['', Validators.required],
+      email:       ['', [Validators.required, Validators.email]],
+      phone:       [''],
+      dateOfBirth: [''],
+      address:     [''],
+    });
+
+    this.editPatientForm = this.fb.group({
+      id:          [''],
+      firstName:   ['', Validators.required],
+      lastName:    ['', Validators.required],
+      email:       ['', [Validators.required, Validators.email]],
+      phone:       [''],
+      dateOfBirth: [''],
+      address:     [''],
+      hospital:    [''],
+    });
+
+    this.changePasswordForm = this.fb.group(
+      {
+        currentPassword: ['', Validators.required],
+        newPassword:     ['', [Validators.required, Validators.minLength(8)]],
+        confirmPassword: ['', Validators.required],
+      },
+      { validators: this.passwordsMatch },
+    );
+
+    this.predictionForm = this.fb.group({
+      age:              [45,    [Validators.required, Validators.min(1),   Validators.max(120)]],
+      sex:              [1,      Validators.required],
+      chestPainType:    [0,      Validators.required],
+      restingBP:        [120,   [Validators.required, Validators.min(50),  Validators.max(250)]],
+      cholesterol:      [200,   [Validators.required, Validators.min(100), Validators.max(600)]],
+      fastingBS:        [false,  Validators.required],
+      restingECG:       [0,      Validators.required],
+      maxHR:            [150,   [Validators.required, Validators.min(60),  Validators.max(220)]],
+      exerciseAngina:   [false,  Validators.required],
+      oldpeak:          [0,     [Validators.required, Validators.min(0)]],
+      slope:            [1,      Validators.required],
+      nbOfMajorVessels: [0,     [Validators.required, Validators.min(0), Validators.max(4)]],
+      thalassemia:      [1,     [Validators.required, Validators.min(0), Validators.max(3)]],
+    });
+
+    this.updateDoctorForm = this.fb.group({
+      id:          [''],
+      firstName:   ['', Validators.required],
+      lastName:    ['', Validators.required],
+      email:       ['', [Validators.required, Validators.email]],
+      hospital:    [''],
+      numeroRPPS:  [{ value: '', disabled: true }],
+    });
+  }
+
+  private passwordsMatch(group: FormGroup): { [key: string]: boolean } | null {
+    const np = group.get('newPassword')?.value;
+    const cp = group.get('confirmPassword')?.value;
+    return np && cp && np !== cp ? { mismatch: true } : null;
   }
 }
