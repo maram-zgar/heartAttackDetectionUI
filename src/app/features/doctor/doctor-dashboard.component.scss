@@ -301,4 +301,22 @@
     height: 24px;
     border-radius: 0 3px 3px 0;
   }
+
+//------------ DOCTOR AVAILABILITY -------------------
+  .doc-availability-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border: 1px solid var(--doc-card-border);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    background: var(--doc-card-bg);
+
+    p {
+      margin: 0.35rem 0 0;
+      opacity: 0.7;
+    }
+  }
+
 }

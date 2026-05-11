@@ -58,8 +58,8 @@ export class DoctorService {
     return this.http.get<Patient[]>('/api/v1/patients');
   }
 
-  createPatient(data: Partial<Patient>): Observable<Patient> {
-    return this.http.post<Patient>('/api/v1/patients', data);
+  createPatient(data: Partial<Patient>): Observable<String> {
+    return this.http.post('/api/v1/patients', data, { responseType: 'text' }) as unknown as Observable<string>;
   }
 
   getPatientById(id: number): Observable<Patient> {

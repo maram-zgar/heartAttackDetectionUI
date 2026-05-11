@@ -126,3 +126,17 @@ export interface PredictionResult {
   createdAt?: string;
   payload?: PredictionPayload;
 }  
+
+export interface DoctorAvailabilityRequest {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface DoctorAvailabilityResponse {
+  id?: string;
+  doctorId: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+}

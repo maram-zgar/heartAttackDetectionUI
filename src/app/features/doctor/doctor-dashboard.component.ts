@@ -41,6 +41,7 @@ import {
 } from '@angular/forms';
 import { PasswordModule } from 'primeng/password';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { DrawerModule } from 'primeng/drawer';
 
 // ── Shared model types – single source of truth ────────────────────────────
 import {
@@ -66,12 +67,13 @@ import { MedicalFileService } from '../../core/http/medical-file.service';
 import { PredictionService } from '../../core/http/prediction.service';
 import { SelectModule } from 'primeng/select';
 import { UserProfile } from '../../shared/models/user-profile.model';
+import { sign } from 'crypto';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type NavSection = 'overview' | 'patients' | 'appointments' | 'prediction' | 'medical-file';
+type NavSection = 'overview' | 'patients' | 'appointments' | 'prediction' | 'medical-file' | 'settings' | 'availability';
 type MonitorRange = 'day' | 'week' | 'month';
 
 interface SelectOption<T> {
@@ -111,6 +113,7 @@ interface AppointmentFormValue {
     TextareaModule,
     PasswordModule,
     Skeleton,
+    DrawerModule,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './doctor-dashboard.component.html',
@@ -171,14 +174,18 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     { id: 'appointments',  label: 'Rendez-vous',     icon: 'pi-calendar' },
     { id: 'prediction',    label: 'Analyse IA',      icon: 'pi-chart-line' },
     { id: 'medical-file',  label: 'Dossiers',        icon: 'pi-folder-open' },
+    { id: 'availability',  label: 'Disponibilités',  icon: 'pi-clock'},
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – loading
   // ─────────────────────────────────────────────────────────────────────────
 
+  readonly loading = signal(false); 
+  readonly loadingMedicalFile = signal(false);
   readonly loadingPatients      = signal(false);
   readonly loadingAppointments  = signal(false);
+  readonly loadingAvailability  = signal(false);
   readonly submitting           = signal(false);
   readonly predicting           = signal(false);
   readonly checkingAvailability = signal(false);
@@ -196,6 +203,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   readonly patients          = signal<Patient[]>([]);
   readonly appointments      = signal<Appointment[]>([]);
   readonly medicalFile       = signal<MedicalFile | null>(null);
+  readonly availability      = signal<any[]>([]);
   readonly selectedAppointment = signal<Appointment | null>(null);
   readonly selectedPatient     = signal<Patient | null>(null);
   readonly selectedPatientDetail  = signal<Patient | null>(null);
@@ -226,6 +234,17 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   readonly editPatientVisible        = signal(false);
 
   isDark = false;
+
+  /**
+   * Plain mutable properties used for [(ngModel)] two-way binding on the
+   * appointments toolbar's p-select / p-datepicker.
+   * On change they update the corresponding signals so computed() re-runs.
+   */
+  get monitorRangeModel(): MonitorRange { return this.monitorRange(); }
+  set monitorRangeModel(v: MonitorRange) { this.monitorRange.set(v); }
+
+  get monitorDateModel(): Date { return this.monitorDate(); }
+  set monitorDateModel(v: Date) { this.monitorDate.set(v); }
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Doctor display info
@@ -284,6 +303,69 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return this.appointments().filter(a => String(a.patientId) === String(pid));
   });
 
+  loadAvailability(): void {
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;
+
+    this.loadingAvailability.set(true);
+
+    this.appointmentService
+      .getDoctorAvailability(doctorId)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.loadingAvailability.set(false))
+      )
+      .subscribe({
+        next: data => this.availability.set(data),
+        error: () => this.availability.set([])
+      });
+  }
+
+  submitAvailability(): void {
+    if (this.availabilityForm.invalid) {
+      this.availabilityForm.markAllAsTouched();
+      return;
+    }
+
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;
+
+    this.appointmentService
+      .setDoctorAvailability(
+        doctorId,
+        this.availabilityForm.value
+      )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Succès',
+            detail: 'Disponibilité enregistrée'
+          });
+
+          this.loadAvailability();
+        },
+        error: () => {
+          this.showError('Impossible d’enregistrer la disponibilité');
+        }
+      });
+  }
+
+  deleteAvailability(day: string): void {
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;
+
+    this.appointmentService
+      .deleteDoctorAvailability(doctorId, day)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.loadAvailability();
+        }
+      });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Forms  (typed with explicit FormGroup generics to avoid index-type errors)
   // ─────────────────────────────────────────────────────────────────────────
@@ -301,6 +383,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   changePasswordForm!:  FormGroup;
   predictionForm!:      FormGroup;
   updateDoctorForm!:    FormGroup;
+  availabilityForm!:    FormGroup;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  LIFECYCLE
@@ -340,9 +423,12 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.selectedPatient.set(patient);
     this.activeNav.set('medical-file');
     this.medicalFile.set(null);
+    this.loadingMedicalFile.set(true);
     this.medicalFileService
       .getByPatientId(String(patient.id))
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$),
+        finalize(() => this.loadingMedicalFile.set(false)) // Stop loading
+      )
       .subscribe({
         next: file  => this.medicalFile.set(this.withSortedConsultations(file)),
         error: ()   => this.showError('Impossible de charger le dossier médical.'),
@@ -525,12 +611,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       finalize(() => this.submittingAddPatient.set(false)),
     ).subscribe({
-      next: created => {
-        this.patients.update(list => [...list, created]);
+      next: (uuid) => {
         this.messageService.add({
           severity: 'success',
           summary:  'Patient ajouté',
-          detail:   `${created.firstName} ${created.lastName} a été enregistré.`,
+          detail:   'Le patient a été enregistré avec succès.',
         });
         this.addPatientVisible.set(false);
         this.addPatientForm.reset();
@@ -644,6 +729,63 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  onUpdateProfile(): void {
+    if (this.updateDoctorForm.invalid) {
+      this.updateDoctorForm.markAllAsTouched();
+      return;
+    }
+
+    this.loading.set(true);
+    this.submittingUpdateDoctor.set(true);
+
+    const payload = this.updateDoctorForm.getRawValue();
+    this.doctorService.updateDoctor(payload).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loading.set(false);
+        this.submittingUpdateDoctor.set(false);
+      })
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Succès',
+          detail: 'Profil mis à jour avec succès'
+        });
+        // Optionally update local currentUser signal with new data
+      },
+      error: (err: any) => this.showError(this.errorMessage(err))
+    });
+  }
+
+  onChangePassword(): void {
+    if (this.changePasswordForm.invalid) {
+      this.changePasswordForm.markAllAsTouched();
+      return;
+    }
+
+    this.loading.set(true);
+    this.submittingChangePassword.set(true);
+
+    this.doctorService.changePassword(this.changePasswordForm.value).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loading.set(false);
+        this.submittingChangePassword.set(false);
+      })
+    ).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Succès',
+          detail: 'Mot de passe modifié avec succès'
+        });
+        this.changePasswordForm.reset();
+      },
+      error: (err: any) => this.showError(this.errorMessage(err))
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Legacy consultation dialog (kept for backwards compat)
   // ─────────────────────────────────────────────────────────────────────────
@@ -681,11 +823,21 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   //  Navigation / UI
   // ─────────────────────────────────────────────────────────────────────────
 
-  navigateTo(section: NavSection): void { this.activeNav.set(section); }
+  navigateTo(section: NavSection): void {
+    this.activeNav.set(section);
+    if (section === 'settings') {
+      this.settingsPanelOpen.set(true);
+    } else {
+      this.settingsPanelOpen.set(false);
+    }
+  }
   toggleSidebar(): void  { this.sidebarCollapsed.update(v => !v); }
   toggleSettings(): void { this.settingsPanelOpen.update(v => !v); }
 
-  loadAll(): void { this.loadAllData(); }
+  loadAll(): void { 
+    this.loadAllData();
+    this.loadAvailability(); 
+  }
 
   toggleDark(): void {
     this.isDark = !this.isDark;
@@ -694,6 +846,13 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }
+
+  logout(): void {
+  // Clear tokens and redirect
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  window.location.href = '/authenticate';
+}
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Display helpers
@@ -927,20 +1086,17 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       firstName:   ['', Validators.required],
       lastName:    ['', Validators.required],
       email:       ['', [Validators.required, Validators.email]],
-      phone:       [''],
-      dateOfBirth: [''],
-      address:     [''],
+      age:          [null, [Validators.required, Validators.min(0)]],
+      hospital:     [''],
     });
 
     this.editPatientForm = this.fb.group({
       id:          [''],
       firstName:   ['', Validators.required],
       lastName:    ['', Validators.required],
-      email:       ['', [Validators.required, Validators.email]],
-      phone:       [''],
-      dateOfBirth: [''],
-      address:     [''],
-      hospital:    [''],
+      email:     ['', [Validators.required, Validators.email]],
+      age:       [null, [Validators.required, Validators.min(0)]],
+      hospital:  ['']
     });
 
     this.changePasswordForm = this.fb.group(
@@ -975,6 +1131,12 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       email:       ['', [Validators.required, Validators.email]],
       hospital:    [''],
       numeroRPPS:  [{ value: '', disabled: true }],
+    });
+
+    this.availabilityForm = this.fb.group({
+      dayOfWeek: ['MONDAY', Validators.required],
+      startTime: ['', Validators.required],
+      endTime: ['', Validators.required],
     });
   }
 

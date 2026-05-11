@@ -6,6 +6,10 @@ import {
   AppointmentRequest,
   AvailableSlotsResponse,
 } from '../../shared/models/medical.model';
+import {
+  DoctorAvailabilityRequest,
+  DoctorAvailabilityResponse
+} from '../../shared/models/medical.model';
 
 @Injectable({ providedIn: 'root' })
 export class AppointmentService {
@@ -43,5 +47,38 @@ export class AppointmentService {
   getAvailableSlots(doctorId: string, date: string): Observable<AvailableSlotsResponse> {
     const params = new HttpParams().set('doctorId', doctorId).set('date', date);
     return this.http.get<AvailableSlotsResponse>(`${this.baseUrl}/available-slots`, { params });
+  }
+
+  getDoctorAvailability(
+    doctorId: string
+  ): Observable<DoctorAvailabilityResponse[]> {
+
+    return this.http.get<DoctorAvailabilityResponse[]>(
+      `/api/v1/doctors/${doctorId}/availability`
+    );
+  }
+
+  setDoctorAvailability(
+    doctorId: string,
+    request: DoctorAvailabilityRequest
+  ): Observable<DoctorAvailabilityResponse> {
+
+    return this.http.post<DoctorAvailabilityResponse>(
+      `/api/v1/doctors/${doctorId}/availability`,
+      request
+    );
+  }
+
+  deleteDoctorAvailability(
+    doctorId: string,
+    day: string
+  ): Observable<void> {
+
+    const params = new HttpParams().set('day', day);
+
+    return this.http.delete<void>(
+      `/api/v1/doctors/${doctorId}/availability`,
+      { params }
+    );
   }
 }

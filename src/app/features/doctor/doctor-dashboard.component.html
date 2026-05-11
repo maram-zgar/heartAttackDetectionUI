@@ -1,7 +1,9 @@
 <p-toast position="top-right" />
 
 <div class="doc-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
-  <aside class="doc-sidebar">
+
+  <aside class="doc-sidebar" style="display: flex; flex-direction: column; height: 100vh;">
+
     <div class="doc-brand">
       <div class="doc-brand-icon"><i class="pi pi-heart-fill"></i></div>
       @if (!sidebarCollapsed()) {
@@ -12,32 +14,54 @@
       }
     </div>
 
-    <nav class="doc-nav" aria-label="Navigation médecin">
-      @for (item of navItems; track item.value) {
-        <button
-          type="button"
-          class="doc-nav-item"
-          [class.active]="activeNav() === item.value"
-          (click)="navigateTo(item.value)"
-          [pTooltip]="sidebarCollapsed() ? item.label : ''"
-          tooltipPosition="right"
-        >
-          <i class="pi doc-nav-icon" [class.pi-home]="item.value === 'overview'" [class.pi-users]="item.value === 'patients'" [class.pi-calendar]="item.value === 'appointments'" [class.pi-folder-open]="item.value === 'medical-file'"></i>
-          @if (!sidebarCollapsed()) { <span>{{ item.label }}</span> }
-          @if (activeNav() === item.value) { <span class="doc-nav-indicator"></span> }
-        </button>
+    <nav class="doc-nav" aria-label="Navigation médecin" style="flex: 1; overflow-y: auto;">
+      @for (item of navItems; track item.id) {
+        @if (item.id !== 'medical-file' && item.id !== 'settings') {
+          <button
+            type="button"
+            class="doc-nav-item"
+            [class.active]="activeNav() === item.id"
+            (click)="navigateTo(item.id)"
+            [pTooltip]="sidebarCollapsed() ? item.label : ''"
+            tooltipPosition="right"
+          >
+            <i class="pi doc-nav-icon" [ngClass]="item.icon"></i>
+            @if (!sidebarCollapsed()) { <span>{{ item.label }}</span> }
+            @if (activeNav() === item.id) { <span class="doc-nav-indicator"></span> }
+          </button>
+        }
       }
     </nav>
 
-    <div class="doc-sidebar-footer">
-      <a class="doc-nav-item danger" routerLink="/auth/authenticate">
+    <div class="doc-sidebar-footer" style="padding-top: 1rem; border-top: 1px solid var(--doc-card-border);">
+      <button 
+        type="button" 
+        class="doc-nav-item" 
+        (click)="settingsPanelOpen.set(true)"
+        [pTooltip]="sidebarCollapsed() ? 'Paramètres' : ''"
+        tooltipPosition="right"
+      >
+        <i class="pi pi-cog doc-nav-icon"></i>
+        @if (!sidebarCollapsed()) { <span>Paramètres</span> }
+      </button>
+
+      <button 
+        type="button" 
+        class="doc-nav-item" 
+        style="color: var(--doc-rose);"
+        (click)="logout()"
+        [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''"
+        tooltipPosition="right"
+      >
         <i class="pi pi-sign-out doc-nav-icon"></i>
         @if (!sidebarCollapsed()) { <span>Déconnexion</span> }
-      </a>
+      </button>
     </div>
+
   </aside>
 
-  <main class="doc-main">
+  <main class="doc-main" style="height: 100vh; overflow-y: auto; display: flex; flex-direction: column; background-color: var(--doc-content-bg);">
+
     <header class="doc-topbar">
       <div class="doc-topbar-left">
         <button type="button" class="doc-icon-btn" (click)="toggleSidebar()" aria-label="Basculer le menu">
@@ -49,12 +73,15 @@
           <span class="doc-breadcrumb-current">{{ doctorName() }}</span>
         </div>
       </div>
-
       <div class="doc-topbar-right">
         <button type="button" class="doc-icon-btn" (click)="loadAll()" aria-label="Actualiser">
           <i class="pi pi-refresh"></i>
         </button>
-        <div class="doc-avatar-chip">
+        <button type="button" class="doc-icon-btn" (click)="toggleDark()" aria-label="Thème sombre">
+          <i class="pi" [ngClass]="isDark ? 'pi-sun' : 'pi-moon'"></i>
+        </button>
+        
+        <div class="doc-avatar-chip" (click)="settingsPanelOpen.set(true)" style="cursor: pointer;">
           <div class="doc-avatar">{{ doctorInitials() }}</div>
           <div class="doc-avatar-info">
             <span class="doc-avatar-name">Dr {{ doctorName() }}</span>
@@ -64,8 +91,10 @@
       </div>
     </header>
 
-    <section class="doc-content">
+    <section class="doc-content" style="flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%;">
+
       @if (activeNav() === 'overview') {
+
         <div class="doc-page-header">
           <div>
             <h1 class="doc-page-title">Vue d'ensemble</h1>
@@ -81,32 +110,32 @@
             <div class="doc-stat-icon emerald"><i class="pi pi-users"></i></div>
             <div class="doc-stat-body">
               <span class="doc-stat-label">Patients</span>
-              @if (loading()) { <p-skeleton width="4rem" height="2rem" /> }
-              @else { <span class="doc-stat-value">{{ patients().length }}</span> }
+              @if (loadingPatients()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ patients()?.length || 0 }}</span> }
             </div>
           </div>
           <div class="doc-stat-card">
             <div class="doc-stat-icon amber"><i class="pi pi-hourglass"></i></div>
             <div class="doc-stat-body">
               <span class="doc-stat-label">Demandes</span>
-              @if (loading()) { <p-skeleton width="4rem" height="2rem" /> }
-              @else { <span class="doc-stat-value">{{ pendingAppointments().length }}</span> }
+              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ pendingAppointments()?.length || 0 }}</span> }
             </div>
           </div>
           <div class="doc-stat-card">
             <div class="doc-stat-icon blue"><i class="pi pi-calendar"></i></div>
             <div class="doc-stat-body">
               <span class="doc-stat-label">Aujourd'hui</span>
-              @if (loading()) { <p-skeleton width="4rem" height="2rem" /> }
-              @else { <span class="doc-stat-value">{{ todayAppointments().length }}</span> }
+              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ todayAppointments()?.length || 0 }}</span> }
             </div>
           </div>
           <div class="doc-stat-card">
             <div class="doc-stat-icon rose"><i class="pi pi-check-circle"></i></div>
             <div class="doc-stat-body">
               <span class="doc-stat-label">Consultations</span>
-              @if (loading()) { <p-skeleton width="4rem" height="2rem" /> }
-              @else { <span class="doc-stat-value">{{ completedAppointments().length }}</span> }
+              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="doc-stat-value">{{ completedAppointments()?.length || 0 }}</span> }
             </div>
           </div>
         </div>
@@ -116,11 +145,11 @@
             <div class="doc-card-header">
               <div>
                 <h2 class="doc-card-title">Patients récents</h2>
-                <p class="doc-card-sub">Cliquez sur un patient pour ouvrir son dossier.</p>
+                <p class="doc-card-sub">Cliquez pour ouvrir le dossier.</p>
               </div>
               <button type="button" class="doc-btn-ghost" (click)="navigateTo('patients')">Voir tous</button>
             </div>
-            @for (patient of patients().slice(0, 5); track patient.id) {
+            @for (patient of patients().slice(0, 5) || []; track patient.id) {
               <button type="button" class="doc-patient-row doc-row-button" (click)="openMedicalFile(patient)">
                 <span class="doc-patient-avatar">{{ initials(patient.firstName, patient.lastName) }}</span>
                 <span class="doc-patient-info">
@@ -138,78 +167,108 @@
             <div class="doc-card-header">
               <div>
                 <h2 class="doc-card-title">Rendez-vous du jour</h2>
-                <p class="doc-card-sub">{{ todayAppointments().length }} élément(s)</p>
+                <p class="doc-card-sub">{{ todayAppointments()?.length || 0 }} élément(s)</p>
               </div>
               <button type="button" class="doc-btn-ghost" (click)="navigateTo('appointments')">Agenda</button>
             </div>
-            @for (appointment of todayAppointments(); track appointment.id) {
+            @for (appt of todayAppointmentsList() || []; track appt.id) {
               <div class="doc-appointment-row">
-                <div class="doc-appointment-time">{{ appointment.dateTime | date: 'dd/MM' }}</div>
+                <div class="doc-appointment-time">{{ appt.dateTime | date:'HH:mm' }}</div>
                 <div class="doc-appointment-patient">
-                  {{ patientName(appointment.patientId) }}
-                  <span>{{ patientEmail(appointment.patientId) }}</span>
+                  <span>{{ patientName(appt.patientId) }}</span>
+                  <span>{{ patientEmail(appt.patientId) }}</span>
                 </div>
-                <p-tag [value]="statusLabel(appointment.status)" [severity]="statusSeverity(appointment.status)" />
+                <p-tag [value]="statusLabel(appt.status)" [severity]="statusSeverity(appt.status)" />
               </div>
             } @empty {
-              <div class="doc-empty-state"><i class="pi pi-calendar-blank"></i><span>Aucun rendez-vous aujourd'hui</span></div>
+              <div class="doc-empty-state">
+                <i class="pi pi-calendar-blank"></i><span>Aucun rendez-vous aujourd'hui</span>
+              </div>
             }
           </div>
         </div>
       }
 
       @if (activeNav() === 'patients') {
+
         <div class="doc-page-header">
           <div>
             <h1 class="doc-page-title">Patients</h1>
             <p class="doc-page-sub">Chaque ligne ouvre le dossier médical complet.</p>
           </div>
+          <button type="button" class="doc-btn-primary" (click)="openAddPatient()">
+            <i class="pi pi-plus"></i> Ajouter un patient
+          </button>
         </div>
 
         <div class="doc-card">
-          <p-table [value]="patients()" [rowHover]="true" [paginator]="true" [rows]="8">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Patient</th>
-                <th>Email</th>
-                <th>Hôpital</th>
-                <th>Actions</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-patient>
-              <tr>
-                <td>
-                  <button type="button" class="doc-inline-patient" (click)="openMedicalFile(patient)">
-                    <span class="doc-patient-avatar">{{ initials(patient.firstName, patient.lastName) }}</span>
-                    <span>{{ patient.firstName }} {{ patient.lastName }}</span>
-                  </button>
-                </td>
-                <td>{{ patient.email }}</td>
-                <td>{{ patient.hospital || '-' }}</td>
-                <td>
-                  <div class="doc-action-btns">
-                    <button type="button" class="doc-action-btn view" pTooltip="Dossier médical" (click)="openMedicalFile(patient)">
-                      <i class="pi pi-folder-open"></i>
+          @if (loadingPatients()) {
+            <div class="doc-skeleton-list">
+              @for (i of skeletonArray(6); track i) {
+                <p-skeleton height="3.5rem" styleClass="mb-2" />
+              }
+            </div>
+          } @else {
+            <p-table [value]="patients() || []" [rowHover]="true" [paginator]="true" [rows]="8"
+              [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} sur {totalRecords}">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Patient</th>
+                  <th>Email</th>
+                  <th>Hôpital</th>
+                  <th style="width:11rem">Actions</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-patient>
+                <tr>
+                  <td>
+                    <button type="button" class="doc-inline-patient" (click)="openMedicalFile(patient)">
+                      <span class="doc-patient-avatar sm">{{ initials(patient.firstName, patient.lastName) }}</span>
+                      <span>{{ patient.firstName }} {{ patient.lastName }}</span>
                     </button>
-                    <button type="button" class="doc-action-btn consult" pTooltip="Rendez-vous" (click)="openAppointmentDialog(patient)">
-                      <i class="pi pi-calendar-plus"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr><td colspan="4" class="doc-table-empty">Aucun patient enregistré</td></tr>
-            </ng-template>
-          </p-table>
+                  </td>
+                  <td>{{ patient.email }}</td>
+                  <td>{{ patient.hospital || '—' }}</td>
+                  <td>
+                    <div class="doc-action-btns">
+                      <button type="button" class="doc-action-btn view"
+                        pTooltip="Dossier médical" tooltipPosition="top"
+                        (click)="openMedicalFile(patient)">
+                        <i class="pi pi-folder-open"></i>
+                      </button>
+                      <button type="button" class="doc-action-btn consult"
+                        pTooltip="Nouveau rendez-vous" tooltipPosition="top"
+                        (click)="openAppointmentDialog(patient)">
+                        <i class="pi pi-calendar-plus"></i>
+                      </button>
+                      <button type="button" class="doc-action-btn edit"
+                        pTooltip="Modifier" tooltipPosition="top"
+                        (click)="openEditPatient(patient)">
+                        <i class="pi pi-pencil"></i>
+                      </button>
+                      <button type="button" class="doc-action-btn delete"
+                        pTooltip="Supprimer" tooltipPosition="top"
+                        (click)="confirmDeletePatient(patient)">
+                        <i class="pi pi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="4" class="doc-table-empty">Aucun patient enregistré</td></tr>
+              </ng-template>
+            </p-table>
+          }
         </div>
       }
 
       @if (activeNav() === 'appointments') {
+
         <div class="doc-page-header">
           <div>
             <h1 class="doc-page-title">Rendez-vous</h1>
-            <p class="doc-page-sub">Vue jour, semaine ou mois de tous vos rendez-vous.</p>
+            <p class="doc-page-sub">Vue jour, semaine ou mois de vos rendez-vous.</p>
           </div>
           <button type="button" class="doc-btn-primary" (click)="openAppointmentDialog()">
             <i class="pi pi-plus"></i> Ajouter
@@ -217,58 +276,217 @@
         </div>
 
         <div class="doc-card doc-monitor-toolbar">
-          <p-select [options]="rangeOptions" [ngModel]="monitorRange()" (ngModelChange)="monitorRange.set($event)" optionLabel="label" optionValue="value" ariaLabel="Période" />
-          <p-datepicker [ngModel]="monitorDate()" (ngModelChange)="monitorDate.set($event)" [showIcon]="true" dateFormat="dd/mm/yy" ariaLabel="Date de référence" />
+          <p-select
+            [options]="rangeOptions"
+            [ngModel]="monitorRange()"
+            (onChange)="monitorRange.set($event.value)"
+            optionLabel="label"
+            optionValue="value"
+            ariaLabel="Période"
+          />
+          <p-datepicker
+            [ngModel]="monitorDate()"
+            (ngModelChange)="monitorDate.set($event)"
+            [showIcon]="true"
+            dateFormat="dd/mm/yy"
+            placeholder="Sélectionner une date"
+            ariaLabel="Date de référence"
+          />
         </div>
 
         <div class="doc-card">
-          <p-table [value]="monitoredAppointments()" [rowHover]="true" [paginator]="true" [rows]="10">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>Date</th>
-                <th>Patient</th>
-                <th>Hôpital</th>
-                <th>Statut</th>
-                <th>Actions</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-appointment>
-              <tr>
-                <td>{{ appointment.dateTime | date: 'dd/MM/yyyy' }}</td>
-                <td>
-                  <button type="button" class="doc-link-btn" (click)="openMedicalFile({ id: appointment.patientId, firstName: patientName(appointment.patientId), lastName: '', email: patientEmail(appointment.patientId), hospital: appointment.hospital, age: 0 })">
-                    {{ patientName(appointment.patientId) }}
-                  </button>
-                </td>
-                <td>{{ appointment.hospital }}</td>
-                <td><p-tag [value]="statusLabel(appointment.status)" [severity]="statusSeverity(appointment.status)" /></td>
-                <td>
-                  <div class="doc-action-btns">
-                    @if (appointment.status === 'PENDING') {
-                      <button type="button" class="doc-action-btn view" pTooltip="Confirmer" (click)="confirmAppointment(appointment)">
-                        <i class="pi pi-check"></i>
-                      </button>
-                    }
-                    @if (appointment.status === 'CONFIRMED' || appointment.status === 'PENDING') {
-                      <button type="button" class="doc-action-btn consult" pTooltip="Terminer en consultation" (click)="openConsultation(appointment)">
-                        <i class="pi pi-file-edit"></i>
-                      </button>
-                      <button type="button" class="doc-action-btn delete" pTooltip="Annuler" (click)="cancelAppointment(appointment)">
-                        <i class="pi pi-times"></i>
-                      </button>
-                    }
-                  </div>
-                </td>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="emptymessage">
-              <tr><td colspan="5" class="doc-table-empty">Aucun rendez-vous pour cette période</td></tr>
-            </ng-template>
-          </p-table>
+          @if (loadingAppointments()) {
+            <div class="doc-skeleton-list">
+              @for (i of skeletonArray(6); track i) {
+                <p-skeleton height="3.5rem" styleClass="mb-2" />
+              }
+            </div>
+          } @else {
+            <p-table [value]="monitoredAppointments()" [rowHover]="true" [paginator]="true" [rows]="10"
+              [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} sur {totalRecords}">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Date & Heure</th>
+                  <th>Patient</th>
+                  <th>Hôpital</th>
+                  <th>Statut</th>
+                  <th style="width:12rem">Actions</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-appt>
+                <tr>
+                  <td>{{ appt.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>
+                    <button type="button" class="doc-link-btn"
+                      (click)="openMedicalFile({
+                        id: appt.patientId,
+                        firstName: patientName(appt.patientId),
+                        lastName: '',
+                        email: patientEmail(appt.patientId),
+                        hospital: appt.hospital,
+                        age: 0
+                      })">
+                      {{ patientName(appt.patientId) }}
+                    </button>
+                  </td>
+                  <td>{{ appt.hospital }}</td>
+                  <td>
+                    <p-tag [value]="statusLabel(appt.status)" [severity]="statusSeverity(appt.status)" />
+                  </td>
+                  <td>
+                    <div class="doc-action-btns">
+                      @if (appt.status === 'PENDING') {
+                        <button type="button" class="doc-action-btn view"
+                          pTooltip="Confirmer" tooltipPosition="top"
+                          (click)="confirmAppointment(appt)">
+                          <i class="pi pi-check"></i>
+                        </button>
+                      }
+                      @if (appt.status === 'ACCEPTED' || appt.status === 'PENDING') {
+                        <button type="button" class="doc-action-btn consult"
+                          pTooltip="Ouvrir consultation" tooltipPosition="top"
+                          (click)="openConsultation(appt)">
+                          <i class="pi pi-file-edit"></i>
+                        </button>
+                        <button type="button" class="doc-action-btn delete"
+                          pTooltip="Annuler" tooltipPosition="top"
+                          (click)="cancelAppointment(appt)">
+                          <i class="pi pi-times"></i>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="5" class="doc-table-empty">Aucun rendez-vous pour cette période</td></tr>
+              </ng-template>
+            </p-table>
+          }
+        </div>
+      }
+
+      @if (activeNav() === 'availability') {
+
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Disponibilités</h1>
+            <p class="doc-page-sub">
+              Gérez vos horaires disponibles pour les rendez-vous.
+            </p>
+          </div>
+        </div>
+
+        <div class="doc-two-col-grid">
+
+          <!-- FORM -->
+          <div class="doc-card">
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title">Ajouter une disponibilité</h2>
+              </div>
+            </div>
+
+            <form [formGroup]="availabilityForm" class="doc-form-stack">
+
+              <div class="doc-form-group">
+                <label class="doc-form-label">Jour</label>
+
+                <p-select
+                  formControlName="dayOfWeek"
+                  [options]="[
+                    {label:'Lundi',value:'MONDAY'},
+                    {label:'Mardi',value:'TUESDAY'},
+                    {label:'Mercredi',value:'WEDNESDAY'},
+                    {label:'Jeudi',value:'THURSDAY'},
+                    {label:'Vendredi',value:'FRIDAY'},
+                    {label:'Samedi',value:'SATURDAY'},
+                    {label:'Dimanche',value:'SUNDAY'}
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  styleClass="w-full"
+                />
+              </div>
+
+              <div class="doc-form-group">
+                <label class="doc-form-label">Heure début</label>
+                <input
+                  type="time"
+                  pInputText
+                  formControlName="startTime"
+                  class="doc-form-input"
+                />
+              </div>
+
+              <div class="doc-form-group">
+                <label class="doc-form-label">Heure fin</label>
+                <input
+                  type="time"
+                  pInputText
+                  formControlName="endTime"
+                  class="doc-form-input"
+                />
+              </div>
+
+              <button
+                type="button"
+                class="doc-btn-primary"
+                (click)="submitAvailability()"
+              >
+                <i class="pi pi-check"></i>
+                Enregistrer
+              </button>
+
+            </form>
+          </div>
+
+          <!-- LIST -->
+          <div class="doc-card">
+
+            <div class="doc-card-header">
+              <div>
+                <h2 class="doc-card-title">Horaires enregistrés</h2>
+              </div>
+            </div>
+
+            @for (slot of availability(); track slot.dayOfWeek) {
+
+              <div class="doc-availability-row">
+
+                <div>
+                  <strong>{{ slot.dayOfWeek }}</strong>
+                  <p>
+                    {{ slot.startTime }} - {{ slot.endTime }}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  class="doc-action-btn delete"
+                  (click)="deleteAvailability(slot.dayOfWeek)"
+                >
+                  <i class="pi pi-trash"></i>
+                </button>
+
+              </div>
+
+            } @empty {
+
+              <div class="doc-empty-state">
+                <i class="pi pi-clock"></i>
+                <span>Aucune disponibilité définie</span>
+              </div>
+
+            }
+
+          </div>
+
         </div>
       }
 
       @if (activeNav() === 'medical-file') {
+
         <div class="doc-page-header">
           <div>
             <h1 class="doc-page-title">Dossier médical</h1>
@@ -276,13 +494,14 @@
               @if (selectedPatient()) {
                 Historique de {{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}
               } @else {
-                Sélectionnez un patient pour afficher son historique.
+                Sélectionnez un patient dans l'onglet Patients.
               }
             </p>
           </div>
           @if (selectedPatient()) {
-            <button type="button" class="doc-btn-primary" (click)="openAppointmentDialog(selectedPatient()!)">
-              <i class="pi pi-calendar-plus"></i> Rendez-vous
+            <button type="button" class="doc-btn-primary"
+              (click)="openAppointmentDialog(selectedPatient()!)">
+              <i class="pi pi-calendar-plus"></i> Nouveau RDV
             </button>
           }
         </div>
@@ -292,51 +511,51 @@
             <i class="pi pi-folder-open"></i>
             <span>Aucun patient sélectionné</span>
           </div>
-        } @else if (!medicalFile()) {
-          <div class="doc-card">
-            <p-skeleton height="5rem" styleClass="mb-3" />
-            <p-skeleton height="5rem" />
-          </div>
         } @else {
           <div class="doc-card doc-medical-file">
             <div class="doc-medical-banner">
-              <div class="doc-dialog-avatar">{{ initials(selectedPatient()!.firstName, selectedPatient()!.lastName) }}</div>
+              <div class="doc-dialog-avatar large">
+                {{ initials(selectedPatient()!.firstName, selectedPatient()!.lastName) }}
+              </div>
               <div>
                 <h2>{{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}</h2>
-                <p>{{ medicalFile()!.consultations.length }} consultation(s) dans le dossier</p>
+                <p>{{ medicalFile()?.consultations?.length || 0 }} consultation(s) dans le dossier</p>
               </div>
             </div>
 
             <p-tabs value="0">
               <p-tablist>
                 <p-tab value="0">Consultations</p-tab>
-                <p-tab value="1">Prédictions</p-tab>
+                <p-tab value="1">Prédictions IA</p-tab>
                 <p-tab value="2">Notes</p-tab>
               </p-tablist>
               <p-tabpanels>
                 <p-tabpanel value="0">
-                  @for (consultation of medicalFile()!.consultations; track consultation.id) {
+                  @for (c of medicalFile()?.consultations || []; track c.id) {
                     <article class="doc-history-item">
                       <div class="doc-history-header">
-                        <strong>{{ formatDate(consultation.dateDeConsultation) }}</strong>
-                        <span>Dr {{ consultation.doctorFirstName || '' }} {{ consultation.doctorLastName || '' }}</span>
+                        <strong>{{ formatDate(c.dateDeConsultation) }}</strong>
+                        <span>Dr {{ c.doctorFirstName }} {{ c.doctorLastName }}</span>
                       </div>
-                      @if (consultation.diagnosis) { <p><strong>Diagnostic:</strong> {{ consultation.diagnosis }}</p> }
-                      @if (consultation.notes) { <p>{{ consultation.notes }}</p> }
+                      @if (c.diagnosis) { <p><strong>Diagnostic :</strong> {{ c.diagnosis }}</p> }
+                      @if (c.notes) { <p>{{ c.notes }}</p> }
                     </article>
                   } @empty {
                     <div class="doc-empty-state"><i class="pi pi-file"></i><span>Aucune consultation</span></div>
                   }
                 </p-tabpanel>
                 <p-tabpanel value="1">
-                  @for (consultation of medicalFile()!.consultations; track consultation.id) {
-                    @if (consultation.predictionResult) {
+                  @for (c of medicalFile()?.consultations || []; track c.id) {
+                    @if (c.predictionResult) {
                       <article class="doc-history-item">
                         <div class="doc-history-header">
-                          <strong>{{ riskText(consultation.predictionResult) }}</strong>
-                          <span>{{ consultation.predictionResult.probability | percent: '1.0-1' }}</span>
+                          <strong [class.risk-high]="c.predictionResult.prediction === 1"
+                                  [class.risk-low]="c.predictionResult.prediction === 0">
+                            {{ riskText(c.predictionResult) }}
+                          </strong>
+                          <span>{{ c.predictionResult.probability | percent:'1.0-1' }}</span>
                         </div>
-                        <p>Consultation du {{ formatDate(consultation.dateDeConsultation) }}</p>
+                        <p>Consultation du {{ formatDate(c.dateDeConsultation) }}</p>
                       </article>
                     }
                   } @empty {
@@ -344,11 +563,11 @@
                   }
                 </p-tabpanel>
                 <p-tabpanel value="2">
-                  @for (note of medicalFile()!.notes ?? []; track note.id) {
+                   @for (note of (medicalFile()?.notes || []); track note.id) {
                     <article class="doc-history-item">
                       <div class="doc-history-header">
-                        <strong>{{ note.authorName || 'Note médicale' }}</strong>
-                        <span>{{ note.createdAt | date: 'dd/MM/yyyy' }}</span>
+                        <strong>{{ note.authorName }}</strong>
+                        <span>{{ note.createdAt | date:'dd/MM/yyyy' }}</span>
                       </div>
                       <p>{{ note.content }}</p>
                     </article>
@@ -361,16 +580,161 @@
           </div>
         }
       }
+
+      @if (activeNav() === 'prediction') {
+        <div class="doc-page-header">
+          <div>
+            <h1 class="doc-page-title">Analyse IA Rapide</h1>
+            <p class="doc-page-sub">Prédisez le risque cardiovasculaire de manière autonome.</p>
+          </div>
+        </div>
+
+        <div class="doc-card" style="display: flex; flex-direction: column; gap: 24px;">
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+            <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="doc-form-group">
+                <label class="doc-form-label">Âge</label>
+                <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Sexe</label>
+                <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Douleur thoracique</label>
+                <p-select formControlName="chestPainType" [options]="chestPainOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Tension repos (mmHg)</label>
+                <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Cholestérol (mg/dl)</label>
+                <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Glycémie à jeun > 120</label>
+                <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+               <div class="doc-form-group">
+                <label class="doc-form-label">ECG au repos</label>
+                <p-select formControlName="restingECG" [options]="ecgOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">FC max (bpm)</label>
+                <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Angine à l'effort</label>
+                <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Dépression ST (oldpeak)</label>
+                <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Pente ST (slope)</label>
+                <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
+              </div>
+              <div class="doc-form-group">
+                <label class="doc-form-label">Vaisseaux colorés</label>
+                <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" styleClass="w-full" />
+              </div>
+               <div class="doc-form-group" style="grid-column: span 2;">
+                <label class="doc-form-label">Thalassémie</label>
+                <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
+              </div>
+            </form>
+
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; border: 1px solid var(--doc-card-border); border-radius: 12px; background: rgba(0,0,0,0.02);">
+              <button type="button" class="doc-btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem; margin-bottom: 24px;" (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
+                @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse en cours... }
+                @else { <i class="pi pi-chart-line"></i> Lancer l'analyse }
+              </button>
+
+              @if (predictionResult()) {
+                <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 1" style="text-align: center; width: 100%;">
+                  <i class="pi" [ngClass]="predictionResult()?.prediction === 1 ? 'pi-exclamation-triangle' : 'pi-shield'" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                  <div>
+                    <strong style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;">{{ riskText(predictionResult()!) }}</strong>
+                    <span>Probabilité estimée : {{ predictionResult()?.probability | percent:'1.0-1' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
     </section>
   </main>
 </div>
 
+<p-drawer [(visible)]="settingsPanelOpen" position="right" [style]="{ width: '400px' }">
+  <ng-template pTemplate="header">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <i class="pi pi-user" style="font-size: 1.5rem; color: var(--doc-primary);"></i>
+      <span style="font-weight: bold; font-size: 1.25rem;">Paramètres du compte</span>
+    </div>
+  </ng-template>
+
+  <div style="display: flex; flex-direction: column; gap: 2rem; padding-top: 1rem;">
+    <div>
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; border-bottom: 1px solid var(--doc-card-border); padding-bottom: 0.5rem;">Informations Personnelles</h3>
+      <form [formGroup]="updateDoctorForm" (ngSubmit)="submitUpdateDoctor()" class="doc-form-stack">
+        <div class="doc-form-group">
+          <label class="doc-form-label">Prénom</label>
+          <input pInputText formControlName="firstName" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Nom</label>
+          <input pInputText formControlName="lastName" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Email Professionnel</label>
+          <input pInputText formControlName="email" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Hôpital</label>
+          <input pInputText formControlName="hospital" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Numéro RPPS (Lecture seule)</label>
+          <input pInputText formControlName="numeroRPPS" class="doc-form-input" />
+        </div>
+        <button type="submit" class="doc-btn-primary" style="width: 100%; margin-top: 0.5rem;" [disabled]="updateDoctorForm.invalid || submittingUpdateDoctor()">
+          <i class="pi pi-save"></i> Enregistrer le profil
+        </button>
+      </form>
+    </div>
+
+    <div>
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem; border-bottom: 1px solid var(--doc-card-border); padding-bottom: 0.5rem;">Sécurité</h3>
+      <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()" class="doc-form-stack">
+        <div class="doc-form-group">
+          <label class="doc-form-label">Mot de passe actuel</label>
+          <input type="password" pInputText formControlName="currentPassword" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Nouveau mot de passe</label>
+          <input type="password" pInputText formControlName="newPassword" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Confirmer le mot de passe</label>
+          <input type="password" pInputText formControlName="confirmPassword" class="doc-form-input" />
+        </div>
+        <button type="submit" class="doc-btn-primary" style="width: 100%; margin-top: 0.5rem;" [disabled]="changePasswordForm.invalid || submittingChangePassword()">
+          <i class="pi pi-lock"></i> Modifier le mot de passe
+        </button>
+      </form>
+    </div>
+  </div>
+</p-drawer>
+
 <p-dialog
-  [visible]="appointmentDialogVisible()"
-  (visibleChange)="appointmentDialogVisible.set($event)"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
+  [(visible)]="appointmentDialogVisible"
+  [modal]="true" [draggable]="false" [resizable]="false"
   header="Nouveau rendez-vous"
   styleClass="doc-dialog"
   [style]="{ width: '32rem' }"
@@ -378,107 +742,185 @@
   <div class="doc-dialog-body">
     <form [formGroup]="appointmentForm" class="doc-form-stack">
       <div class="doc-form-group">
-        <label class="doc-form-label" for="doctorAppointmentPatient">Patient</label>
-        <p-select inputId="doctorAppointmentPatient" formControlName="patientId" [options]="patientOptions()" optionLabel="label" optionValue="value" placeholder="Sélectionner un patient" styleClass="w-full" />
+        <label class="doc-form-label" for="apt-patient">Patient *</label>
+        <p-select inputId="apt-patient" formControlName="patientId" [options]="patientOptions()" optionLabel="label" optionValue="value" placeholder="Sélectionner" styleClass="w-full" />
       </div>
       <div class="doc-form-group">
-        <label class="doc-form-label" for="doctorAppointmentDate">Date</label>
-        <p-datepicker inputId="doctorAppointmentDate" formControlName="date" [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full" (onSelect)="checkAvailability()" />
+        <label class="doc-form-label" for="apt-date">Date *</label>
+        <p-datepicker inputId="apt-date" formControlName="date" [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full" />
       </div>
       <div class="doc-form-group">
-        <label class="doc-form-label" for="doctorAppointmentHospital">Hôpital</label>
-        <input id="doctorAppointmentHospital" pInputText formControlName="hospital" class="doc-form-input" />
-      </div>
-      <div class="doc-slot-state" [class.available]="availableSlots().length > 0">
-        @if (checkingAvailability()) {
-          <i class="pi pi-spin pi-spinner"></i> Vérification de la disponibilité...
-        } @else if (availableSlots().length > 0) {
-          <i class="pi pi-check-circle"></i> Date disponible
-        } @else {
-          <i class="pi pi-exclamation-circle"></i> Aucune disponibilité confirmée pour cette date
-        }
+        <label class="doc-form-label" for="apt-hospital">Hôpital *</label>
+        <input id="apt-hospital" pInputText formControlName="hospital" class="doc-form-input" />
       </div>
     </form>
   </div>
   <ng-template pTemplate="footer">
     <button type="button" class="doc-btn-secondary" (click)="appointmentDialogVisible.set(false)">Annuler</button>
-    <button type="button" class="doc-btn-primary" (click)="submitAppointment()" [disabled]="appointmentForm.invalid || submitting() || availableSlots().length === 0">
-      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> Création... }
-      @else { <i class="pi pi-check"></i> Créer }
+    <button type="button" class="doc-btn-primary" (click)="submitAppointment()" [disabled]="appointmentForm.invalid || submitting()">
+      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> } @else { <i class="pi pi-check"></i> Créer }
     </button>
   </ng-template>
 </p-dialog>
 
 <p-dialog
-  [visible]="consultationDialogVisible()"
-  (visibleChange)="consultationDialogVisible.set($event)"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  header="Compléter la consultation"
-  styleClass="doc-dialog doc-consultation-dialog"
-  [style]="{ width: '56rem' }"
+  [(visible)]="addPatientVisible"
+  [modal]="true" [draggable]="false" [resizable]="false"
+  header="Ajouter un patient"
+  styleClass="doc-dialog"
+  [style]="{ width: '32rem' }"
 >
-  <div class="doc-dialog-body doc-consultation-grid">
-    <form [formGroup]="consultationForm" class="doc-form-stack">
-      <div class="doc-dialog-patient-info">
-        <div class="doc-dialog-avatar">{{ initials(selectedPatient()?.firstName, selectedPatient()?.lastName) }}</div>
-        <div>
-          <p class="doc-dialog-patient-name">{{ patientName(selectedAppointment()?.patientId || '') }}</p>
-          <p class="doc-dialog-patient-email">{{ selectedAppointment()?.dateTime | date: 'dd/MM/yyyy' }}</p>
+  <div class="doc-dialog-body">
+    <form [formGroup]="addPatientForm" class="doc-form-stack">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="add-fn">Prénom *</label>
+          <input id="add-fn" pInputText formControlName="firstName" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="add-ln">Nom *</label>
+          <input id="add-ln" pInputText formControlName="lastName" class="doc-form-input" />
         </div>
       </div>
       <div class="doc-form-group">
-        <label class="doc-form-label" for="diagnosis">Diagnostic</label>
-        <input id="diagnosis" pInputText formControlName="diagnosis" class="doc-form-input" />
+        <label class="doc-form-label" for="add-em">Email *</label>
+        <input id="add-em" pInputText formControlName="email" type="email" class="doc-form-input" />
       </div>
       <div class="doc-form-group">
-        <label class="doc-form-label" for="notes">Notes avant sauvegarde</label>
-        <textarea id="notes" pTextarea formControlName="notes" rows="8" class="doc-form-textarea"></textarea>
+        <label class="doc-form-label" for="add-ph">Age</label>
+        <input id="add-ph" pInputText formControlName="age" class="doc-form-input" />
       </div>
-    </form>
-
-    <form [formGroup]="predictionForm" class="doc-prediction-panel">
-      <div class="doc-card-header">
-        <div>
-          <h2 class="doc-card-title">Prédiction</h2>
-          <p class="doc-card-sub">Réservée au médecin pendant la consultation.</p>
-        </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="add-addr">Hopital</label>
+        <input id="add-addr" pInputText formControlName="hospital" class="doc-form-input" />
       </div>
-      <div class="doc-pred-grid">
-        <div class="doc-form-group"><label class="doc-form-label">Âge</label><p-inputnumber formControlName="age" [min]="1" [max]="120" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Sexe</label><p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Douleur thoracique</label><p-inputnumber formControlName="chestPainType" [min]="0" [max]="3" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Tension au repos</label><p-inputnumber formControlName="restingBloodPressure" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Cholestérol</label><p-inputnumber formControlName="cholesterol" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Glycémie à jeun</label><p-select formControlName="fastingBloodSugar" [options]="binaryOptions" optionLabel="label" optionValue="value" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">ECG repos</label><p-inputnumber formControlName="restingECG" [min]="0" [max]="2" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Fréquence max</label><p-inputnumber formControlName="maxHeartRateAchieved" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Angine effort</label><p-select formControlName="exerciseInducedAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">ST depression</label><p-inputnumber formControlName="STDepressionInducedByExercise" [minFractionDigits]="1" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Slope</label><p-inputnumber formControlName="slopeOfPeakExerciseSTSegment" [min]="0" [max]="2" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Vaisseaux</label><p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" /></div>
-        <div class="doc-form-group"><label class="doc-form-label">Thalassémie</label><p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" /></div>
-      </div>
-      <button type="button" class="doc-btn-primary" (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
-        @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse... }
-        @else { <i class="pi pi-chart-line"></i> Lancer }
-      </button>
-      @if (predictionResult()) {
-        <div class="doc-pred-result" [class.high]="predictionResult()!.prediction === 1">
-          <strong>{{ riskText(predictionResult()!) }}</strong>
-          @if (predictionResult()!.probability !== undefined) {
-            <span>{{ predictionResult()!.probability | percent: '1.0-1' }}</span>
-          }
-        </div>
-      }
     </form>
   </div>
   <ng-template pTemplate="footer">
-    <button type="button" class="doc-btn-secondary" (click)="consultationDialogVisible.set(false)">Annuler</button>
-    <button type="button" class="doc-btn-primary" (click)="saveConsultation()" [disabled]="consultationForm.invalid || submitting()">
-      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> Sauvegarde... }
-      @else { <i class="pi pi-save"></i> Sauvegarder la consultation }
+    <button type="button" class="doc-btn-secondary" (click)="addPatientVisible.set(false)">Annuler</button>
+    <button type="button" class="doc-btn-primary" (click)="submitAddPatient()" [disabled]="addPatientForm.invalid || submittingAddPatient()">
+      @if (submittingAddPatient()) { <i class="pi pi-spin pi-spinner"></i> Ajout... } @else { <i class="pi pi-check"></i> Ajouter }
     </button>
   </ng-template>
 </p-dialog>
+
+<p-dialog
+  [(visible)]="editPatientVisible"
+  [modal]="true" [draggable]="false" [resizable]="false"
+  header="Modifier le patient"
+  styleClass="doc-dialog"
+  [style]="{ width: '32rem' }"
+>
+  <div class="doc-dialog-body">
+    <form [formGroup]="editPatientForm" class="doc-form-stack">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="edit-fn">Prénom *</label>
+          <input id="edit-fn" pInputText formControlName="firstName" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="edit-ln">Nom *</label>
+          <input id="edit-ln" pInputText formControlName="lastName" class="doc-form-input" />
+        </div>
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="edit-em">Email *</label>
+        <input id="edit-em" pInputText formControlName="email" type="email" class="doc-form-input" />
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="edit-ph">Téléphone</label>
+        <input id="edit-ph" pInputText formControlName="phone" class="doc-form-input" />
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="edit-dob">Date de naissance</label>
+        <input id="edit-dob" pInputText formControlName="dateOfBirth" class="doc-form-input" placeholder="YYYY-MM-DD" />
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="edit-addr">Adresse</label>
+        <input id="edit-addr" pInputText formControlName="address" class="doc-form-input" />
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="edit-hosp">Hôpital</label>
+        <input id="edit-hosp" pInputText formControlName="hospital" class="doc-form-input" />
+      </div>
+    </form>
+  </div>
+  <ng-template pTemplate="footer">
+    <button type="button" class="doc-btn-secondary" (click)="editPatientVisible.set(false)">Annuler</button>
+    <button type="button" class="doc-btn-primary" (click)="submitEditPatient()" [disabled]="editPatientForm.invalid || submittingEditPatient()">
+      @if (submittingEditPatient()) { <i class="pi pi-spin pi-spinner"></i> Mise à jour... } @else { <i class="pi pi-check"></i> Enregistrer }
+    </button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="consultationDialogVisible"
+  [modal]="true" [draggable]="false" [resizable]="false"
+  header="Compléter la consultation"
+  styleClass="doc-dialog doc-consultation-dialog"
+  [style]="{ width: '60rem', maxWidth: '95vw' }"
+>
+  <div class="doc-dialog-body doc-consultation-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="doc-consult-left">
+      <div class="doc-dialog-patient-info" style="display: flex; gap: 16px; margin-bottom: 24px;">
+        <div class="doc-dialog-avatar large">{{ initials(selectedPatient()?.firstName, selectedPatient()?.lastName) }}</div>
+        <div>
+          <p class="doc-dialog-patient-name" style="font-weight: bold; font-size: 1.2rem;">{{ patientName(selectedAppointment()?.patientId ?? '') }}</p>
+          <p class="doc-dialog-patient-email">{{ selectedAppointment()?.dateTime | date:'dd/MM/yyyy HH:mm' }}</p>
+        </div>
+      </div>
+      <form [formGroup]="consultationForm" class="doc-form-stack">
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="con-diagnosis">Diagnostic *</label>
+          <input id="con-diagnosis" pInputText formControlName="diagnosis" class="doc-form-input" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label" for="con-notes">Notes cliniques *</label>
+          <textarea id="con-notes" pTextarea formControlName="notes" [rows]="9" class="doc-form-textarea" style="width: 100%;"></textarea>
+        </div>
+      </form>
+    </div>
+    
+    <div class="doc-prediction-panel" style="background: rgba(0,0,0,0.02); padding: 24px; border-radius: 12px; border: 1px solid var(--doc-card-border);">
+      <h3 class="doc-card-title" style="margin-bottom: 16px;">Analyse du Risque IA</h3>
+      <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+         <div class="doc-form-group">
+          <label class="doc-form-label">Âge</label>
+          <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Sexe</label>
+          <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Tension repos</label>
+          <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Cholestérol</label>
+          <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+        </div>
+      </form>
+      <div class="doc-pred-actions" style="margin-top: 24px; display: flex; flex-direction: column; align-items: center;">
+         <button type="button" class="doc-btn-primary" style="width: 100%; padding: 0.75rem;" (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
+           Lancer l'IA intégrée
+         </button>
+         
+         @if (predictionResult()) {
+            <div style="margin-top: 16px; text-align: center; color: var(--doc-primary);">
+              <strong>Score: {{ predictionResult()?.probability | percent:'1.0-1' }}</strong>
+              <p>{{ riskText(predictionResult()!) }}</p>
+            </div>
+         }
+      </div>
+    </div>
+  </div>
+  <ng-template pTemplate="footer">
+    <button type="button" class="doc-btn-secondary" (click)="consultationDialogVisible.set(false)">Plus tard</button>
+    <button type="button" class="doc-btn-primary" (click)="saveConsultation()" [disabled]="consultationForm.invalid || submitting()">
+      Terminer la consultation
+    </button>
+  </ng-template>
+</p-dialog>
+
+<p-confirmDialog />
