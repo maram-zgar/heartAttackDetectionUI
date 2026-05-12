@@ -5,7 +5,6 @@ export interface Appointment {
   patientId: string;
   doctorId: string;
   dateTime: string;
-  hospital: string;
   status: AppointmentStatus;
   patientEmail?: string;
   patientFirstName?: string;
@@ -18,7 +17,6 @@ export interface AppointmentRequest {
   patientId: string;
   doctorId: string;
   dateTime: string;
-  hospital: string;
   status?: AppointmentStatus;
   patientEmail?: string;
   patientFirstName?: string;
@@ -53,7 +51,6 @@ export interface PatientSummary {
   firstName: string;
   lastName: string;
   email: string;
-  hospital?: string;
   dateOfBirth?: string;
   phone?: string;
   gender?: string;

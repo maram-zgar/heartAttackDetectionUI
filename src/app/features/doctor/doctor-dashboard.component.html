@@ -85,7 +85,6 @@
           <div class="doc-avatar">{{ doctorInitials() }}</div>
           <div class="doc-avatar-info">
             <span class="doc-avatar-name">Dr {{ doctorName() }}</span>
-            <span class="doc-avatar-tag">{{ currentUser()?.hospital || 'Médecin' }}</span>
           </div>
         </div>
       </div>
@@ -228,7 +227,6 @@
                     </button>
                   </td>
                   <td>{{ patient.email }}</td>
-                  <td>{{ patient.hospital || '—' }}</td>
                   <td>
                     <div class="doc-action-btns">
                       <button type="button" class="doc-action-btn view"
@@ -323,13 +321,11 @@
                         firstName: patientName(appt.patientId),
                         lastName: '',
                         email: patientEmail(appt.patientId),
-                        hospital: appt.hospital,
                         age: 0
                       })">
                       {{ patientName(appt.patientId) }}
                     </button>
                   </td>
-                  <td>{{ appt.hospital }}</td>
                   <td>
                     <p-tag [value]="statusLabel(appt.status)" [severity]="statusSeverity(appt.status)" />
                   </td>
@@ -696,10 +692,6 @@
           <input pInputText formControlName="email" class="doc-form-input" />
         </div>
         <div class="doc-form-group">
-          <label class="doc-form-label">Hôpital</label>
-          <input pInputText formControlName="hospital" class="doc-form-input" />
-        </div>
-        <div class="doc-form-group">
           <label class="doc-form-label">Numéro RPPS (Lecture seule)</label>
           <input pInputText formControlName="numeroRPPS" class="doc-form-input" />
         </div>
@@ -749,10 +741,6 @@
         <label class="doc-form-label" for="apt-date">Date *</label>
         <p-datepicker inputId="apt-date" formControlName="date" [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full" />
       </div>
-      <div class="doc-form-group">
-        <label class="doc-form-label" for="apt-hospital">Hôpital *</label>
-        <input id="apt-hospital" pInputText formControlName="hospital" class="doc-form-input" />
-      </div>
     </form>
   </div>
   <ng-template pTemplate="footer">
@@ -782,20 +770,46 @@
           <input id="add-ln" pInputText formControlName="lastName" class="doc-form-input" />
         </div>
       </div>
+
       <div class="doc-form-group">
         <label class="doc-form-label" for="add-em">Email *</label>
         <input id="add-em" pInputText formControlName="email" type="email" class="doc-form-input" />
       </div>
+
       <div class="doc-form-group">
-        <label class="doc-form-label" for="add-ph">Age</label>
-        <input id="add-ph" pInputText formControlName="age" class="doc-form-input" />
+        <label class="doc-form-label" for="add-dob">Date de naissance *</label>
+        <input id="add-dob" type="date" pInputText formControlName="dateOfBirth" class="doc-form-input" />
       </div>
+
       <div class="doc-form-group">
-        <label class="doc-form-label" for="add-addr">Hopital</label>
-        <input id="add-addr" pInputText formControlName="hospital" class="doc-form-input" />
+        <label class="doc-form-label" for="add-gender">Genre *</label>
+        <p-select
+          id="add-gender"
+          formControlName="gender"
+          [options]="[
+            { label: 'Homme', value: 'MALE' },
+            { label: 'Femme', value: 'FEMALE' }
+          ]"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Sélectionner"
+          styleClass="w-full"
+        />
+      </div>
+
+      <div class="doc-form-group">
+        <label class="doc-form-label" for="add-age">Âge *</label>
+        <p-inputnumber
+          id="add-age"
+          formControlName="age"
+          [min]="0"
+          [max]="120"
+          styleClass="w-full"
+        />
       </div>
     </form>
   </div>
+
   <ng-template pTemplate="footer">
     <button type="button" class="doc-btn-secondary" (click)="addPatientVisible.set(false)">Annuler</button>
     <button type="button" class="doc-btn-primary" (click)="submitAddPatient()" [disabled]="addPatientForm.invalid || submittingAddPatient()">
@@ -838,10 +852,6 @@
       <div class="doc-form-group">
         <label class="doc-form-label" for="edit-addr">Adresse</label>
         <input id="edit-addr" pInputText formControlName="address" class="doc-form-input" />
-      </div>
-      <div class="doc-form-group">
-        <label class="doc-form-label" for="edit-hosp">Hôpital</label>
-        <input id="edit-hosp" pInputText formControlName="hospital" class="doc-form-input" />
       </div>
     </form>
   </div>

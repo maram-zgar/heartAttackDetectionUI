@@ -20,7 +20,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     take(1),
     switchMap((storeToken) => {
 
-      // ✅ FALLBACK TO LOCALSTORAGE AFTER PAGE REFRESH
+      // FALLBACK TO LOCALSTORAGE AFTER PAGE REFRESH
       const localToken = isBrowser
         ? localStorage.getItem('access_token')
         : null;

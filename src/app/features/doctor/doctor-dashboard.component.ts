@@ -85,7 +85,6 @@ interface SelectOption<T> {
 interface AppointmentFormValue {
   patientId: string;
   date: Date;
-  hospital: string;
 }
 
 @Component({
@@ -374,7 +373,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   appointmentForm!: FormGroup<{
     patientId: FormControl<string>;
     date:      FormControl<Date>;
-    hospital:  FormControl<string>;
   }>;
 
   consultationForm!:    FormGroup;
@@ -444,7 +442,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.appointmentForm.reset({
       patientId: patient ? String(patient.id) : '',
       date:      new Date(),
-      hospital:  this.currentUser()?.hospital ?? '',
     });
     this.appointmentDialogVisible.set(true);
     this.checkAvailability();
@@ -483,7 +480,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       patientId:        String(patient.id),
       doctorId:         this.currentUser()!.id,
       dateTime:         this.toDateOnly(this.appointmentForm.controls.date.value),
-      hospital:         this.appointmentForm.controls.hospital.value,
       patientEmail:     patient.email,
       patientFirstName: patient.firstName,
     };
@@ -607,7 +603,14 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     if (this.addPatientForm.invalid) { this.addPatientForm.markAllAsTouched(); return; }
 
     this.submittingAddPatient.set(true);
-    this.doctorService.createPatient(this.addPatientForm.value).pipe(
+
+    const payload = {
+      ...this.addPatientForm.value,
+      doctorId: this.currentUser()?.id,
+      age: Number(this.addPatientForm.value.age)
+    };
+
+    this.doctorService.createPatient(payload).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingAddPatient.set(false)),
     ).subscribe({
@@ -934,7 +937,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
           firstName:  profile.firstName,
           lastName:   profile.lastName,
           email:      profile.email,
-          hospital:   (profile as any).hospital,
           numeroRPPS: (profile as any).numeroRPPS,
         });
       },
@@ -1005,7 +1007,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       patientId:        String(appointment.patientId),
       doctorId:         appointment.doctorId,
       dateTime:         appointment.dateTime,
-      hospital:         appointment.hospital,
       patientEmail:     patient?.email     ?? appointment.patientEmail,
       patientFirstName: patient?.firstName ?? appointment.patientFirstName,
     };
@@ -1074,7 +1075,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.appointmentForm = nnfb.group({
       patientId: nnfb.control('',         Validators.required),
       date:      nnfb.control(new Date(), Validators.required),
-      hospital:  nnfb.control('',         Validators.required),
     });
 
     this.consultationForm = this.fb.group({
@@ -1086,17 +1086,19 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       firstName:   ['', Validators.required],
       lastName:    ['', Validators.required],
       email:       ['', [Validators.required, Validators.email]],
+      dateOfBirth: [null, Validators.required],
+      gender:      ['', Validators.required],
       age:          [null, [Validators.required, Validators.min(0)]],
-      hospital:     [''],
     });
 
     this.editPatientForm = this.fb.group({
       id:          [''],
-      firstName:   ['', Validators.required],
-      lastName:    ['', Validators.required],
-      email:     ['', [Validators.required, Validators.email]],
-      age:       [null, [Validators.required, Validators.min(0)]],
-      hospital:  ['']
+  firstName:   ['', Validators.required],
+  lastName:    ['', Validators.required],
+  email:       ['', [Validators.required, Validators.email]],
+  dateOfBirth: ['', Validators.required],
+  gender:      ['', Validators.required],
+  age:         [null, [Validators.required, Validators.min(0)]],
     });
 
     this.changePasswordForm = this.fb.group(
@@ -1129,7 +1131,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       firstName:   ['', Validators.required],
       lastName:    ['', Validators.required],
       email:       ['', [Validators.required, Validators.email]],
-      hospital:    [''],
       numeroRPPS:  [{ value: '', disabled: true }],
     });
 

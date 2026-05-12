@@ -164,7 +164,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       lastName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       numeroRPPS: ['', Validators.required],
-      hospital: ['', Validators.required],
       password: ['', [Validators.required, Validators.minLength(8)]],
     });
 

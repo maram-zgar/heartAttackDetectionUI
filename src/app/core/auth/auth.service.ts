@@ -92,12 +92,11 @@ export class AuthService {
   }
 
   // add access token to headers and call PUT /api/v1/auth/update-profile to update firstName and lastName
-  updateProfile(request: { firstName: string; lastName: string; hospital: string }): Observable<UserProfile> {
+  updateProfile(request: { firstName: string; lastName: string; }): Observable<UserProfile> {
     const token = this.getAccessToken();
     return this.http.put<UserProfile>(`${this.baseUrl}/update-profile`, {
       firstName: request.firstName,
       lastName: request.lastName,
-      hospital: request.hospital,
     }, {
       headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
     });

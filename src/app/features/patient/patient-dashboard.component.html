@@ -149,7 +149,6 @@
                   </div>
                   <div class="cs-upcoming-info">
                     <span class="cs-upcoming-date">{{ formatDateTime(appt.dateTime) }}</span>
-                    <span class="cs-upcoming-hospital">{{ appt.hospital }}</span>
                   </div>
                   <p-tag [severity]="statusSeverity(appt.status)" [value]="statusLabel(appt.status)" />
                 </div>
@@ -268,7 +267,6 @@
                       {{ formatDateTime(appt.dateTime) }}
                     </div>
                   </td>
-                  <td>{{ appt.hospital || '—' }}</td>
                   <td>
                     <p-tag [severity]="statusSeverity(appt.status)" [value]="statusLabel(appt.status)" />
                   </td>
@@ -510,13 +508,6 @@
     <div *ngIf="!loadingSlots() && bookingForm.get('date')?.value && availableSlots().length === 0" class="cs-slots-warn">
       <i class="pi pi-exclamation-triangle"></i>
       Aucune disponibilité trouvée. Essayez une autre date.
-    </div>
-
-    <div class="cs-field">
-      <label>Établissement <span class="cs-required">*</span></label>
-      <input pInputText formControlName="hospital" placeholder="Nom de l'hôpital / clinique"
-             [class.ng-invalid]="isFieldInvalid(bookingForm, 'hospital')" />
-      <small *ngIf="isFieldInvalid(bookingForm, 'hospital')" class="cs-error">Champ obligatoire</small>
     </div>
 
     <div class="cs-dialog-actions">

@@ -11,7 +11,6 @@ export interface UserProfile {
   numeroRPPS?:  string;
   phoneNumber?: string;
   avatarUrl?:   string;
-  hospital?:    string;  // optional — null for patients
 
   // Patient-specific
   dateOfBirth?: string;

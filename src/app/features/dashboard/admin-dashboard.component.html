@@ -347,12 +347,6 @@
     </div>
 
     <div class="adm-dfield">
-      <label>Hôpital / Clinique</label>
-      <input pInputText formControlName="hospital" placeholder="Nom de l'établissement" 
-            [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'hospital')}"/>
-    </div>
-
-    <div class="adm-dfield">
       <label>Mot de passe temporaire</label>
       <p-password formControlName="password" [feedback]="true" [toggleMask]="true"
         styleClass="w-full" [inputStyle]="{width:'100%'}"

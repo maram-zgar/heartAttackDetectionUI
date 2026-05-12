@@ -299,7 +299,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   openBookingDialog(): void {
     this.availableSlots.set([]);
-    this.bookingForm.reset({ hospital: '', date: new Date() });
+    this.bookingForm.reset({ date: new Date() });
     this.bookingDialogVisible.set(true);
   }
 
@@ -328,13 +328,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
 
     const patient = this.currentUser()!;
-    const { doctorId, date, hospital } = this.bookingForm.value;
+    const { doctorId, date } = this.bookingForm.value;
 
     const request: AppointmentRequest = {
       patientId:        String(patient.id),
       doctorId,
       dateTime:         this.toDateOnly(date),
-      hospital,
       patientEmail:     patient.email,
       patientFirstName: patient.firstName,
     };
@@ -533,7 +532,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.bookingForm = this.fb.group({
       doctorId: ['', Validators.required],
       date:     [new Date(), Validators.required],
-      hospital: ['', Validators.required],
     });
 
     this.changePasswordForm = this.fb.group(

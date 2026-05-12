@@ -98,7 +98,7 @@ export class AuthEffects {
       switchMap(({ request }) =>
         this.authService.authenticate(request).pipe(
           tap((res: any) => {
-            // ✅ Store tokens HERE, synchronously, before loginSuccess dispatches
+            // Store tokens HERE, synchronously, before loginSuccess dispatches
             if (this.isBrowser && res.accessToken && res.refreshToken) {
               localStorage.setItem('access_token', res.accessToken);
               localStorage.setItem('refresh_token', res.refreshToken);
@@ -204,8 +204,19 @@ export class AuthEffects {
     () =>
       this.actions$.pipe(
         ofType(AuthActions.signupSuccess),
-        tap(() => {
-          this.router.navigateByUrl("/auth/authenticate");
+        tap(({ accessToken, refreshToken }) => {
+          if (this.isBrowser && accessToken && refreshToken) {
+            // 1. Save the tokens so the /me request is authorized
+            localStorage.setItem('access_token', accessToken);
+            localStorage.setItem('refresh_token', refreshToken);
+            
+            // 2. Dispatch loginSuccess to trigger loadProfileAfterLogin$
+            this.store.dispatch(AuthActions.loginSuccess({ 
+              accessToken, 
+              refreshToken, 
+              rememberMe: false 
+            }));
+          }
         })
       ),
     { dispatch: false }

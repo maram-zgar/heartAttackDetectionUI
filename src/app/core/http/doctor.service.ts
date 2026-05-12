@@ -8,7 +8,6 @@ export interface Patient {
   firstName: string;
   lastName: string;
   email: string;
-  hospital: string;
   age: number;
   dateOfBirth?: string;
   phone?: string;
@@ -58,8 +57,8 @@ export class DoctorService {
     return this.http.get<Patient[]>('/api/v1/patients');
   }
 
-  createPatient(data: Partial<Patient>): Observable<String> {
-    return this.http.post('/api/v1/patients', data, { responseType: 'text' }) as unknown as Observable<string>;
+  createPatient(data: Partial<Patient>): Observable<void> {
+    return this.http.post<void>('/api/v1/patients', data);
   }
 
   getPatientById(id: number): Observable<Patient> {

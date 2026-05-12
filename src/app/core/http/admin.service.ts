@@ -11,7 +11,6 @@ export interface Doctor {
   lastName: string;
   numeroRPPS?: string;
   avatarUrl?: string;
-  hospital?: string;
   role?: string;
   createdAt?: string;
 }
