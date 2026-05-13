@@ -6,7 +6,7 @@ import { PatientResponse } from '../../doctor/models/doctor.model';
 @Injectable({ providedIn: 'root' })
 export class PatientApiService {
   private http = inject(HttpClient);
-  private readonly baseUrl = '/api/v1/patients';
+  private readonly baseUrl = 'http://localhost:8080/api/v1/patients';
 
   getPatientProfile(id: string): Observable<PatientResponse> {
     return this.http.get<PatientResponse>(`${this.baseUrl}/${id}`);

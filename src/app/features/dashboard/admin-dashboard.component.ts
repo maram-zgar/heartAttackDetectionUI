@@ -1,5 +1,16 @@
 // admin-dashboard.component.ts
-import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, signal, computed, ChangeDetectorRef, inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  Inject,
+  PLATFORM_ID,
+  signal,
+  computed,
+  ChangeDetectorRef,
+  ChangeDetectionStrategy,
+  inject,
+} from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -16,7 +27,7 @@ import { AvatarModule } from 'primeng/avatar';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
-import { ConfirmationService, Header, MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { PasswordModule } from 'primeng/password';
 import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
@@ -31,7 +42,7 @@ import { selectAccessToken } from '../../store/auth/auth.selectors';
 
 @Component({
   selector: 'app-admin-dashboard',
-  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './admin-dashboard.component.scss',
   imports: [
     CommonModule,
@@ -57,7 +68,7 @@ import { selectAccessToken } from '../../store/auth/auth.selectors';
   templateUrl: './admin-dashboard.component.html',
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
-    private readonly cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
+  private readonly cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
   // ── UI state ───────────────────────────────────────────────────────────────
 
   /** Whether the sidebar is in icon-only (collapsed) mode */
@@ -138,17 +149,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   private store = inject(Store);
   ngOnInit(): void {
-    this.store.select(selectAccessToken).pipe(
-      filter(token => !!token),
-      take(1)
-    ).subscribe(() => {
-      this.loadAllData();
-      this.buildForms();
-      this.loadDarkMode();
-    });
-    
-    
-    
+    this.buildForms();
+    this.loadDarkMode();
+
+    this.store
+      .select(selectAccessToken)
+      .pipe(
+        filter((token) => !!token),
+        take(1),
+      )
+      .subscribe(() => {
+        this.loadAllData();
+        this.cdr.detectChanges();
+      });
   }
 
   ngOnDestroy(): void {
@@ -237,23 +250,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   fetchDoctors(): void {
     this.loadingDoctors.set(true);
-    console.log('fetchDoctors started, loading:', this.loadingDoctors());
     this.adminService
       .getDoctors()
       .pipe(
         takeUntil(this.destroy$),
-        catchError((err) => {
-          console.error('catchError hit:', err.status, err.error);
-          return of<Doctor[]>([]);
-        }),
-        finalize(() => {
-          console.log('finalize hit');
-          this.loadingDoctors.set(false);
-          console.log('loading after set:', this.loadingDoctors());
-        }),
+        catchError(() => of<Doctor[]>([])),
+        finalize(() => this.loadingDoctors.set(false)),
       )
       .subscribe((data) => {
-        console.log('subscribe next, data length:', data.length);
         this.doctors.set(data);
         this.cdr.detectChanges();
       });

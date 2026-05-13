@@ -8,13 +8,13 @@ import {
 } from '../../shared/models/medical.model';
 import {
   DoctorAvailabilityRequest,
-  DoctorAvailabilityResponse
+  DoctorAvailabilityResponse,
 } from '../../shared/models/medical.model';
 
 @Injectable({ providedIn: 'root' })
 export class AppointmentService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = '/api/v1/appointments';
+  private readonly baseUrl = 'http://localhost:8080/api/v1/appointments';
 
   findAll(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(this.baseUrl);
@@ -49,36 +49,23 @@ export class AppointmentService {
     return this.http.get<AvailableSlotsResponse>(`${this.baseUrl}/available-slots`, { params });
   }
 
-  getDoctorAvailability(
-    doctorId: string
-  ): Observable<DoctorAvailabilityResponse[]> {
-
-    return this.http.get<DoctorAvailabilityResponse[]>(
-      `/api/v1/doctors/${doctorId}/availability`
-    );
+  getDoctorAvailability(doctorId: string): Observable<DoctorAvailabilityResponse[]> {
+    return this.http.get<DoctorAvailabilityResponse[]>(`/api/v1/doctors/${doctorId}/availability`);
   }
 
   setDoctorAvailability(
     doctorId: string,
-    request: DoctorAvailabilityRequest
+    request: DoctorAvailabilityRequest,
   ): Observable<DoctorAvailabilityResponse> {
-
     return this.http.post<DoctorAvailabilityResponse>(
       `/api/v1/doctors/${doctorId}/availability`,
-      request
+      request,
     );
   }
 
-  deleteDoctorAvailability(
-    doctorId: string,
-    day: string
-  ): Observable<void> {
-
+  deleteDoctorAvailability(doctorId: string, day: string): Observable<void> {
     const params = new HttpParams().set('day', day);
 
-    return this.http.delete<void>(
-      `/api/v1/doctors/${doctorId}/availability`,
-      { params }
-    );
+    return this.http.delete<void>(`/api/v1/doctors/${doctorId}/availability`, { params });
   }
 }

@@ -112,7 +112,7 @@
             <div class="adm-stat-icon emerald"><i class="pi pi-users"></i></div>
             <div class="adm-stat-body">
               <span class="adm-stat-label">Médecins enregistrés</span>
-              @if (loadingStats()) { <p-skeleton width="4rem" height="2rem" /> } 
+              @if (loadingDoctors()) { <p-skeleton width="4rem" height="2rem" /> }
               @else { <span class="adm-stat-value">{{ doctors().length }}</span> }
             </div>
             <div class="adm-stat-trend up"><i class="pi pi-arrow-up-right"></i> + ce mois</div>
@@ -325,32 +325,36 @@
       <div class="adm-dfield">
         <label>Prénom</label>
         <input pInputText formControlName="firstName" placeholder="Jean" class="w-full"
-          [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'firstName')}" />
+          [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'firstName')"
+          [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'firstName')" />
       </div>
       <div class="adm-dfield">
         <label>Nom</label>
         <input pInputText formControlName="lastName" placeholder="Dupont" class="w-full"
-          [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'lastName')}" />
+          [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'lastName')"
+          [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'lastName')" />
       </div>
     </div>
 
     <div class="adm-dfield">
       <label>Adresse e-mail</label>
       <input pInputText formControlName="email" type="email" placeholder="doctor@hopital.fr" class="w-full"
-        [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'email')}" />
+        [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'email')"
+        [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'email')" />
     </div>
 
     <div class="adm-dfield">
       <label>Numéro RPPS</label>
-      <input pInputText formControlName="numeroRPPS" placeholder="Ex: 10101234567" 
-            [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'numeroRPPS')}"/>
+      <input pInputText formControlName="numeroRPPS" placeholder="Ex: 10101234567"
+        [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'numeroRPPS')"
+        [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'numeroRPPS')" />
     </div>
 
     <div class="adm-dfield">
       <label>Mot de passe temporaire</label>
       <p-password formControlName="password" [feedback]="true" [toggleMask]="true"
         styleClass="w-full" [inputStyle]="{width:'100%'}"
-        [ngClass]="{'ng-invalid ng-dirty': isFieldInvalid(createDoctorForm, 'password')}" />
+        [invalid]="isFieldInvalid(createDoctorForm, 'password')" />
     </div>
 
     <div class="adm-dialog-actions">

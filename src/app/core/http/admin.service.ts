@@ -24,14 +24,19 @@ export interface AppStats {
 
 export interface ActivityEntry {
   id: number;
-  type: 'doctor_created' | 'patient_registered' | 'consultation_completed' | 'account_deactivated' | string;
+  type:
+    | 'doctor_created'
+    | 'patient_registered'
+    | 'consultation_completed'
+    | 'account_deactivated'
+    | string;
   description: string;
   timestamp: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private readonly baseUrl = '/admin';
+  private readonly baseUrl = 'http://localhost:8080/admin';
 
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
@@ -42,11 +47,10 @@ export class AdminService {
 
     return {
       headers: new HttpHeaders({
-        Authorization: `Bearer ${token ?? ''}`
-      })
+        Authorization: `Bearer ${token ?? ''}`,
+      }),
     };
   }
-
 
   getStats(): Observable<AppStats> {
     return this.http.get<AppStats>(`${this.baseUrl}/stats`);
