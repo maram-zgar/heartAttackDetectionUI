@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'RESCHEDULED' | 'CANCELLED' | 'COMPLETED';
 
 export interface Appointment {
   id: string;
@@ -11,6 +11,8 @@ export interface Appointment {
   patientLastName?: string;
   doctorFirstName?: string;
   doctorLastName?: string;
+  durationMinutes?: number;
+  appointmentType?: 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP' | 'CONSULTATION';
 }
 
 export interface AppointmentRequest {
@@ -20,6 +22,9 @@ export interface AppointmentRequest {
   status?: AppointmentStatus;
   patientEmail?: string;
   patientFirstName?: string;
+  patientLastName?: string;
+  durationMinutes?: number;
+  appointmentType?: 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP' | 'CONSULTATION';
 }
 
 export interface AvailableSlotsResponse {

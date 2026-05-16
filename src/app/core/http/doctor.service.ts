@@ -78,6 +78,10 @@ export class DoctorService {
     return this.http.post(`${this.baseUrl}/doctors/change-password`, data);
   }
 
+   getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
+    return this.http.get<{ firstName: string; lastName: string }>(`${this.baseUrl}/api/v1/doctors/${id}`);
+  }
+
   updateDoctor(data: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/doctors`, data);
   }

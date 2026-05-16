@@ -26,15 +26,17 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
 
-  // Patient Dashboard
+// Patient Dashboard
   {
     path: 'patient/dashboard',
     loadComponent: () =>
       import('./features/patient/patient-dashboard.component').then(
-        (m) => m.PatientDashboardComponent,
+        (m) => m.PatientDashboardComponent
       ),
     canActivate: [authGuard],
   },
+
+
 
   {
     path: '',

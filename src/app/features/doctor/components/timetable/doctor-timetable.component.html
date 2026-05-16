@@ -1,0 +1,269 @@
+<p-toast position="top-right" />
+
+<div class="tt-wrapper">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+  <div class="tt-header">
+    <div class="tt-header-left">
+      <div class="tt-icon"><i class="pi pi-calendar-clock"></i></div>
+      <div>
+        <h2 class="tt-title">Emploi du temps</h2>
+        <p class="tt-subtitle">Planning hebdomadaire · Gestion des rendez-vous</p>
+      </div>
+    </div>
+    <div class="tt-header-right">
+      <div class="tt-range-group">
+        @for (opt of rangeOptions; track opt.value) {
+          <button type="button" class="tt-range-btn"
+            [class.active]="selectedRange() === opt.value"
+            (click)="setRange(opt.value)">{{ opt.label }}</button>
+        }
+      </div>
+      <div class="tt-nav-controls">
+        <button type="button" class="tt-nav-btn" (click)="navigateWindow(-1)">
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <button type="button" class="tt-today-btn" (click)="goToToday()">Aujourd'hui</button>
+        <button type="button" class="tt-nav-btn" (click)="navigateWindow(1)">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
+      <button type="button" class="tt-setup-btn" (click)="openScheduleSetup()">
+        <i class="pi pi-cog"></i>
+        <span>Configurer mes jours</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ WORK DAYS SUMMARY ═══════════════════════════════════════════════ -->
+  <div class="tt-workdays-bar">
+    @if (loadingAvailability()) {
+      <span class="tt-muted"><i class="pi pi-spin pi-spinner" style="margin-right:6px"></i>Chargement du planning…</span>
+    } @else if (availability().length === 0) {
+      <div class="tt-no-schedule">
+        <i class="pi pi-info-circle"></i>
+        <span>Aucun jour configuré. Cliquez sur <strong>Configurer mes jours</strong> pour commencer.</span>
+      </div>
+    } @else {
+      @for (avail of availability(); track avail.id) {
+        <div class="tt-workday-pill">
+          <span class="tt-pill-day">{{ dayLabel(avail.dayOfWeek) }}</span>
+          <span class="tt-pill-hours">{{ avail.startTime }} – {{ avail.endTime }}</span>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- ══ LEGEND ═══════════════════════════════════════════════════════════ -->
+  <div class="tt-legend">
+    <span class="tt-leg available"><span class="tt-dot"></span>Libre</span>
+    <span class="tt-leg pending"><span class="tt-dot"></span>En attente</span>
+    <span class="tt-leg confirmed"><span class="tt-dot"></span>Confirmé</span>
+    <span class="tt-leg completed"><span class="tt-dot"></span>Terminé</span>
+    <span class="tt-leg cancelled"><span class="tt-dot"></span>Annulé</span>
+  </div>
+
+  <!-- ══ TIMETABLE GRID (single) ══════════════════════════════════════════ -->
+  <div class="tt-grid-container">
+    @if (loadingTimetable()) {
+      <div class="tt-loading">
+        <p-skeleton height="400px" borderRadius="16px" />
+      </div>
+    } @else if (timetable().length === 0 || availability().length === 0) {
+      <div class="tt-empty-state">
+        <i class="pi pi-calendar-times"></i>
+        <p>Configurez vos jours de travail pour voir votre planning.</p>
+        <button type="button" class="tt-add-btn" (click)="openScheduleSetup()">
+          <i class="pi pi-plus"></i> Configurer maintenant
+        </button>
+      </div>
+    } @else {
+      <!-- One flat grid for all days in the window -->
+      <div class="tt-cal-grid" [style.--col-count]="timetable().length">
+
+        <!-- Corner -->
+        <div class="tt-corner"></div>
+
+        <!-- Day headers -->
+        @for (day of timetable(); track day.date) {
+          <div class="tt-day-header"
+            [class.today]="isToday(day.date)"
+            [class.workday]="day.isWorkDay">
+            <span class="tt-day-name">{{ day.label }}</span>
+            @if (day.isWorkDay) {
+              <span class="tt-day-appt-count">
+                {{ countDayAppointments(day) }} RDV
+              </span>
+            } @else {
+              <span class="tt-day-off">Repos</span>
+            }
+          </div>
+        }
+
+        <!-- Time rows -->
+        @for (timeRow of timeRows(); track timeRow) {
+
+          <!-- Time label -->
+          <div class="tt-time-label">{{ timeRow }}</div>
+
+          <!-- Cells -->
+          @for (day of timetable(); track day.date) {
+            @if (!day.isWorkDay) {
+              <div class="tt-cell tt-cell--off"></div>
+            } @else {
+              @let slot = getSlot(day, timeRow);
+              @if (slot) {
+                @if (slot.state === 'confirmed' || slot.state === 'pending' || slot.state === 'completed') {
+                  <div
+                    class="tt-cell tt-cell--booked"
+                    [ngClass]="[slot.state, slotTypeClass(slot)]"
+                    (click)="onSlotClick(slot)"
+                    [pTooltip]="slotPatientName(slot) + ' · ' + slotTypeLabel(slot)"
+                    tooltipPosition="top"
+                  >
+                    <span class="tt-cell-patient-name">{{ slotPatientName(slot) || '—' }}</span>
+                    <span class="tt-cell-type-tag">{{ slotTypeLabel(slot) }}</span>
+                    @if (slot.state === 'pending') {
+                      <span class="tt-cell-pulse"></span>
+                    }
+                  </div>
+                } @else {
+                  <div
+                    class="tt-cell tt-cell--free"
+                    (click)="onSlotClick(slot)"
+                    pTooltip="Créneau libre"
+                    tooltipPosition="top"
+                  >
+                    <span class="tt-cell-time-label">{{ slot.time }}</span>
+                  </div>
+                }
+              } @else {
+                <div class="tt-cell tt-cell--empty"></div>
+              }
+            }
+          }
+        }
+
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ══ SCHEDULE SETUP DIALOG ═══════════════════════════════════════════ -->
+<p-dialog
+  [(visible)]="scheduleDialogVisible"
+  [modal]="true" [draggable]="false" [closable]="true"
+  [style]="{ width: '640px', maxHeight: '85vh' }"
+  styleClass="tt-dialog"
+  header="Configurer mes jours de travail"
+>
+  <div class="tt-setup-grid">
+    @for (day of dayConfigs; track day.dow) {
+      <div class="tt-day-config-row" [class.selected]="day.selected">
+
+        <div class="tt-day-config-check">
+          <p-checkbox [(ngModel)]="day.selected" [binary]="true" />
+          <span class="tt-day-config-label">{{ day.label }}</span>
+          @if (day.selected) {
+            <span class="tt-day-hours-preview">{{ day.startTime }} → {{ day.endTime }}</span>
+          }
+        </div>
+
+        @if (day.selected) {
+          <div class="tt-day-config-times">
+            <div class="tt-time-field">
+              <label>Heure de début</label>
+              <input type="time" [(ngModel)]="day.startTime" class="tt-time-input" />
+            </div>
+            <div class="tt-time-field">
+              <label>Heure de fin</label>
+              <input type="time" [(ngModel)]="day.endTime" class="tt-time-input" />
+            </div>
+          </div>
+        }
+
+      </div>
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <button type="button" class="tt-btn-secondary" (click)="scheduleDialogVisible = false">
+      Annuler
+    </button>
+    <button type="button" class="tt-btn-primary" [disabled]="savingSchedule()" (click)="saveSchedule()">
+      @if (savingSchedule()) { <i class="pi pi-spin pi-spinner"></i> Enregistrement… }
+      @else { <i class="pi pi-check"></i> Enregistrer le planning }
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- ══ SLOT DETAIL DIALOG ══════════════════════════════════════════════ -->
+<p-dialog
+  [(visible)]="slotDialogVisible"
+  [modal]="true" [draggable]="false" [closable]="true"
+  [style]="{ width: '420px' }"
+  styleClass="tt-dialog"
+  [header]="selectedSlot()?.appointment ? 'Détail du rendez-vous' : 'Créneau libre'"
+>
+  @if (selectedSlot()) {
+    <div class="tt-slot-detail">
+
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-calendar"></i>
+        <span>{{ selectedSlot()!.date | date:'EEEE d MMMM yyyy':'':'fr-FR' }}</span>
+      </div>
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-clock"></i>
+        <span>{{ selectedSlot()!.time }}</span>
+      </div>
+
+      <div class="tt-slot-detail-row">
+        <p-tag
+          [value]="stateLabel(selectedSlot()!.state)"
+          [severity]="stateSeverity(selectedSlot()!.state)"
+        />
+      </div>
+
+      @if (selectedSlot()!.appointment) {
+        <div class="tt-appt-detail-card">
+          <div class="tt-appt-patient">
+            <i class="pi pi-user"></i>
+            <strong>{{ slotPatientName(selectedSlot()!) }}</strong>
+          </div>
+          <div class="tt-appt-status">
+            <i class="pi pi-info-circle"></i>
+            <span>{{ selectedSlot()!.appointment!.status }}</span>
+          </div>
+        </div>
+
+        <!-- Doctor can confirm a PENDING appointment -->
+        @if (selectedSlot()!.appointment!.status === 'PENDING') {
+          <div class="tt-slot-actions">
+            <button type="button" class="tt-btn-confirm" (click)="confirmSlot()">
+              <i class="pi pi-check"></i> Confirmer
+            </button>
+            <button type="button" class="tt-btn-cancel" (click)="cancelSlot()">
+              <i class="pi pi-times"></i> Annuler
+            </button>
+          </div>
+        }
+
+        @if (selectedSlot()!.appointment!.status === 'CONFIRMED') {
+          <div class="tt-slot-actions">
+            <button type="button" class="tt-btn-cancel" (click)="cancelSlot()">
+              <i class="pi pi-times"></i> Annuler le RDV
+            </button>
+          </div>
+        }
+
+      } @else {
+        <div class="tt-slot-free-msg">
+          <i class="pi pi-check-circle"></i>
+          <span>Ce créneau est libre — aucun rendez-vous.</span>
+        </div>
+      }
+
+    </div>
+  }
+</p-dialog>

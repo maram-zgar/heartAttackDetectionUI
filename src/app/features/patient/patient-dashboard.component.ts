@@ -9,7 +9,6 @@ import {
   ChangeDetectorRef,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, filter } from 'rxjs/operators';
@@ -42,12 +41,17 @@ import { AuthService } from '../../core/auth/auth.service';
 import { selectCurrentUser } from '../../store/auth/auth.selectors';
 import { Appointment, AppointmentRequest, MedicalFile } from '../../shared/models/medical.model';
 import { UserProfile } from '../../shared/models/user-profile.model';
+import { PatientBookingComponent } from '../patient/components/booking/patient-booking.component';
+import { PatientService } from '../../core/http/patient.service';
+import { DoctorService } from '../../core/http/doctor.service';
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type NavSection = 'overview' | 'appointments' | 'medical-file' | 'settings';
+type NavSection = 'overview' | 'appointments' | 'medical-file' | 'settings' | 'booking';
 
 interface SelectOption<T> {
   label: string;
@@ -61,7 +65,6 @@ interface SelectOption<T> {
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
-    RouterLink,
     ButtonModule,
     AvatarModule,
     BadgeModule,
@@ -79,6 +82,7 @@ interface SelectOption<T> {
     Skeleton,
     DrawerModule,
     TimelineModule,
+    PatientBookingComponent,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './patient-dashboard.component.html',
@@ -97,6 +101,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   private readonly cdr                 = inject(ChangeDetectorRef);
   private readonly platformId          = inject(PLATFORM_ID);
   private readonly destroy$            = new Subject<void>();
+  private readonly patientService = inject(PatientService);
+  private readonly doctorService = inject(DoctorService);
+
+
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Static options
@@ -118,6 +126,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   readonly loadingSlots           = signal(false);
   readonly submittingAppointment  = signal(false);
   readonly submittingPassword     = signal(false);
+  readonly assignedDoctor = signal<{ firstName: string; lastName: string } | null>(null);
+  readonly loadingDoctor  = signal(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – data
@@ -132,6 +142,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   readonly patientEmail    = signal('');
   readonly patientInitials = signal('PT');
 
+  // Derive doctorId straight from profile
+  readonly selectedDoctorId    = computed(() => this.currentUser()?.doctorId ?? '');
+  readonly selectedDoctorFirst = computed(() => '');
+  readonly selectedDoctorLast  = computed(() => '');
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – UI
   // ─────────────────────────────────────────────────────────────────────────
@@ -139,12 +154,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   readonly activeNav               = signal<NavSection>('overview');
   readonly sidebarCollapsed        = signal(false);
   readonly bookingDialogVisible    = signal(false);
+  readonly rescheduleDialogVisible = signal(false);
   readonly settingsPanelOpen       = signal(false);
+  readonly selectedAppointment     = signal<Appointment | null>(null);
+  
 
   isDark = false;
 
-  // Selected doctor id for booking (static for now; extend if you add doctor selection)
-  selectedDoctorId = signal<string>('');
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Computed
@@ -173,6 +189,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       .slice(0, 3),
   );
 
+  readonly slotOptions = computed<SelectOption<string>[]>(() =>
+    this.availableSlots().map(slot => ({
+      label: slot.substring(11, 16),
+      value: slot,
+    })),
+  );
+
   readonly recentConsultations = computed(() => {
     const file = this.medicalFile();
     if (!file) return [];
@@ -186,6 +209,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   // ─────────────────────────────────────────────────────────────────────────
 
   bookingForm!:         FormGroup;
+  rescheduleForm!:      FormGroup;
   changePasswordForm!:  FormGroup;
   today = new Date();
   // ─────────────────────────────────────────────────────────────────────────
@@ -212,8 +236,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         this.patientEmail.set(user.email);
         this.patientName.set(`${user.firstName} ${user.lastName}`);
         this.patientInitials.set(this.buildInitials(user.firstName, user.lastName));
+        this.loadAllData();
       }
-      this.loadAllData();
+      if (user?.doctorId) {
+        this.loadAssignedDoctor(user.doctorId);
+      }
     });
   }
 
@@ -234,6 +261,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         this.patientEmail.set(profile.email);
         this.patientInitials.set(this.buildInitials(profile.firstName, profile.lastName));
         this.loadAllData();
+        if ((profile as any).doctorId) {
+          this.loadAssignedDoctor((profile as any).doctorId);
+        }
       },
       error: () => {
         // Silently fall back to NgRx store value
@@ -293,20 +323,32 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadAssignedDoctor(doctorId: string): void {
+    this.loadingDoctor.set(true);
+    this.doctorService.getDoctorById(doctorId)
+      .pipe(takeUntil(this.destroy$), finalize(() => this.loadingDoctor.set(false)))
+      .subscribe({
+        next: (doc: { firstName: string; lastName: string }) => this.assignedDoctor.set(doc),
+        error: ()  => this.assignedDoctor.set(null),
+      });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Appointment booking
   // ─────────────────────────────────────────────────────────────────────────
 
   openBookingDialog(): void {
-    this.availableSlots.set([]);
-    this.bookingForm.reset({ date: new Date() });
-    this.bookingDialogVisible.set(true);
+    this.navigateTo('booking');
   }
 
   checkSlots(): void {
     const doctorId = this.bookingForm.get('doctorId')?.value;
     const date = this.bookingForm.get('date')?.value;
     if (!doctorId || !date) return;
+
+    // Clear slot selection when reloading
+    this.bookingForm.get('selectedSlot')?.setValue('');
+    this.availableSlots.set([]);
 
     this.loadingSlots.set(true);
     this.appointmentService
@@ -328,14 +370,21 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
 
     const patient = this.currentUser()!;
-    const { doctorId, date } = this.bookingForm.value;
+    const { doctorId, selectedSlot } = this.bookingForm.value;
+
+    if (!selectedSlot) {
+      this.showError('Veuillez sélectionner un créneau horaire.');
+      return;
+    }
 
     const request: AppointmentRequest = {
       patientId:        String(patient.id),
       doctorId,
-      dateTime:         this.toDateOnly(date),
+      // selectedSlot is already the full ISO datetime from the backend
+      dateTime:         selectedSlot,
       patientEmail:     patient.email,
       patientFirstName: patient.firstName,
+      patientLastName:  patient.lastName,
     };
 
     this.submittingAppointment.set(true);
@@ -356,6 +405,80 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  openRescheduleDialog(appointment: Appointment): void {
+    this.selectedAppointment.set(appointment);
+    this.rescheduleForm.reset({
+      doctorId:     appointment.doctorId,
+      date:         new Date(appointment.dateTime),
+      selectedSlot: '',
+    });
+    this.availableSlots.set([]);
+    this.rescheduleDialogVisible.set(true);
+    this.checkRescheduleSlots();
+  }
+
+  checkRescheduleSlots(): void {
+    const doctorId = this.rescheduleForm.get('doctorId')?.value;
+    const date     = this.rescheduleForm.get('date')?.value;
+    if (!doctorId || !date) return;
+
+    this.rescheduleForm.get('selectedSlot')?.setValue('');
+    this.availableSlots.set([]);
+    this.loadingSlots.set(true);
+    this.appointmentService
+      .getAvailableSlots(doctorId, this.toDateOnly(date))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.loadingSlots.set(false)))
+      .subscribe({
+        next: r => this.availableSlots.set(r.slots),
+        error: () => this.availableSlots.set([]),
+      });
+  }
+
+  submitReschedule(): void {
+    const appointment = this.selectedAppointment();
+    const patient = this.currentUser();
+    if (!appointment || !patient || this.rescheduleForm.invalid) {
+      this.rescheduleForm.markAllAsTouched();
+      return;
+    }
+
+    const selectedSlot = this.rescheduleForm.get('selectedSlot')?.value;
+    if (!selectedSlot) {
+      this.showError('Veuillez sélectionner un nouveau créneau.');
+      return;
+    }
+
+    const request: AppointmentRequest = {
+      patientId: String(patient.id),
+      doctorId: appointment.doctorId,
+      dateTime: selectedSlot,
+      status: 'PENDING',
+      patientEmail: patient.email,
+      patientFirstName: patient.firstName,
+      patientLastName: patient.lastName,
+      durationMinutes: appointment.durationMinutes,
+      appointmentType: appointment.appointmentType,
+    };
+
+    this.submittingAppointment.set(true);
+    this.appointmentService.reschedule(appointment.id, request).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingAppointment.set(false)),
+    ).subscribe({
+      next: updated => {
+        this.appointments.update(list => list.map(a => a.id === updated.id ? updated : a));
+        this.rescheduleDialogVisible.set(false);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Demande de reprogrammation envoyée',
+          detail: 'Le médecin devra valider le nouveau créneau.',
+        });
+        this.loadAppointments();
+      },
+      error: (err: unknown) => this.showError(this.errorMessage(err)),
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  Settings – change password
   // ─────────────────────────────────────────────────────────────────────────
@@ -367,7 +490,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     const { currentPassword, newPassword } = this.changePasswordForm.value;
 
     // Reuse the generic change-password endpoint (patients share the gateway auth)
-    this.authService.changePassword({ currentPassword, newPassword }).pipe(
+    this.patientService.changePassword({ currentPassword, newPassword }).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingPassword.set(false)),
     ).subscribe({
@@ -420,7 +543,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   statusLabel(status: string | undefined): string {
     const map: Record<string, string> = {
       PENDING:   'En attente',
-      CONFIRMED: 'Confirmé',
+      CONFIRMED: 'Accepté',
+      RESCHEDULED: 'Reprogrammé',
       CANCELLED: 'Annulé',
       COMPLETED: 'Terminé',
     };
@@ -430,9 +554,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   statusSeverity(status: string | undefined): 'success' | 'danger' | 'warn' | 'info' | 'secondary' {
     const map: Record<string, 'success' | 'danger' | 'warn' | 'info' | 'secondary'> = {
       PENDING:   'warn',
-      CONFIRMED: 'info',
+      CONFIRMED: 'success',
+      RESCHEDULED: 'info',
       CANCELLED: 'danger',
-      COMPLETED: 'success',
+      COMPLETED: 'secondary',
     };
     return status ? (map[status] ?? 'secondary') : 'secondary';
   }
@@ -441,6 +566,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     const map: Record<string, string> = {
       PENDING:   'pi pi-clock',
       CONFIRMED: 'pi pi-check-circle',
+      RESCHEDULED: 'pi pi-calendar-clock',
       CANCELLED: 'pi pi-times-circle',
       COMPLETED: 'pi pi-check-square',
     };
@@ -530,8 +656,15 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   private buildForms(): void {
     this.bookingForm = this.fb.group({
-      doctorId: ['', Validators.required],
-      date:     [new Date(), Validators.required],
+      doctorId:     ['', Validators.required],
+      date:         [new Date(), Validators.required],
+      selectedSlot: ['', Validators.required],
+    });
+
+    this.rescheduleForm = this.fb.group({
+      doctorId:     ['', Validators.required],
+      date:         [new Date(), Validators.required],
+      selectedSlot: ['', Validators.required],
     });
 
     this.changePasswordForm = this.fb.group(

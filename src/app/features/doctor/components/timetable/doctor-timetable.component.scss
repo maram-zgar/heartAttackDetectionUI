@@ -1,0 +1,293 @@
+// ── Calendar grid (Google Calendar style) ─────────────────────────────────
+
+.tt-cal-grid {
+  display: grid;
+  grid-template-columns: 56px repeat(var(--col-count), 1fr);
+  overflow-x: auto;
+}
+
+.tt-corner {
+  border-right: 1px solid var(--tt-border);
+  border-bottom: 1px solid var(--tt-border);
+  background: var(--tt-surface);
+}
+
+.tt-day-header {
+  padding: .625rem .5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--tt-border);
+  border-right: 1px solid var(--tt-border);
+  background: var(--tt-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+
+  &.today { background: rgba(5,150,105,.08); }
+  &.today .tt-day-name { color: var(--tt-emerald); font-weight: 700; }
+}
+
+.tt-day-name    { font-size: .78125rem; color: var(--tt-text); }
+.tt-day-off     { font-size: .6875rem; color: var(--tt-text-muted); }
+.tt-day-appt-count {
+  font-size: .6875rem;
+  color: var(--tt-emerald);
+  background: var(--tt-available-bg);
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+// Slot cells
+.tt-cell {
+  min-height: 52px;
+  border-right: 1px solid var(--tt-border);
+  border-bottom: 1px solid var(--tt-border);
+  position: relative;
+  transition: all .15s;
+}
+
+.tt-cell--off {
+  background: rgba(0,0,0,.12);
+  background-image: repeating-linear-gradient(
+    45deg, transparent, transparent 4px,
+    rgba(255,255,255,.012) 4px, rgba(255,255,255,.012) 8px
+  );
+}
+
+.tt-cell--empty { background: transparent; }
+
+.tt-cell--free {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+
+  &:hover {
+    background: var(--tt-available-bg);
+    border-color: rgba(5,150,105,.2);
+  }
+}
+
+.tt-cell-time-label {
+  font-size: .65rem;
+  color: rgba(255,255,255,.2);
+}
+
+// Booked cells — Google Calendar style
+.tt-cell--booked {
+  cursor: pointer;
+  padding: .3rem .4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 4px;
+  margin: 1px;
+  border-left: 3px solid transparent;
+  overflow: hidden;
+  transition: filter .15s;
+
+  animation: tt-pop-in .24s ease both;
+  &:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+  // Status-based border colour
+  &.pending   { border-left-color: var(--tt-pending);   background: var(--tt-pending-bg); }
+  &.confirmed { border-left-color: var(--tt-confirmed); background: var(--tt-confirmed-bg); }
+  &.completed { border-left-color: var(--tt-completed); background: var(--tt-completed-bg); }
+}
+
+// Appointment type colour overrides (left accent)
+.type-consult  { border-left-color: #059669 !important; }
+.type-checkup  { border-left-color: #3b82f6 !important; }
+.type-surgery  { border-left-color: #ef4444 !important; }
+.type-followup { border-left-color: #d97706 !important; }
+
+.tt-cell-patient-name {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--tt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-cell-type-tag {
+  font-size: .625rem;
+  color: var(--tt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ── Work days bar ──────────────────────────────────────────────────────────
+
+.tt-workdays-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .625rem;
+  padding: .875rem 1rem;
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-border);
+  border-radius: var(--tt-radius);
+}
+
+.tt-workday-pill {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .375rem .875rem;
+  background: var(--tt-surface-2);
+  border: 1px solid var(--tt-border);
+  border-radius: 20px;
+  font-size: .78125rem;
+}
+
+.tt-pill-day   { font-weight: 700; color: var(--tt-emerald); }
+.tt-pill-hours { color: var(--tt-text); }
+.tt-pill-slots { color: var(--tt-text-muted); }
+
+.tt-no-schedule {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  color: var(--tt-text-muted);
+  font-size: .875rem;
+  i { color: var(--tt-emerald); }
+}
+
+// ── Setup dialog grid ──────────────────────────────────────────────────────
+
+.tt-setup-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .5rem 0;
+}
+
+.tt-day-config-row {
+  border: 1px solid var(--tt-border);
+  border-radius: var(--tt-radius-sm);
+  padding: .75rem 1rem;
+  transition: all .2s;
+  background: var(--tt-surface);
+
+  &.selected {
+    border-color: rgba(5,150,105,.3);
+    background: rgba(5,150,105,.04);
+  }
+}
+
+.tt-day-config-check {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .5rem;
+}
+
+.tt-day-config-label {
+  font-weight: 600;
+  font-size: .9375rem;
+  color: var(--tt-text);
+}
+
+.tt-day-config-times {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-left: 2rem;
+}
+
+.tt-time-field {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+
+  label {
+    font-size: .72rem;
+    color: var(--tt-text-muted);
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+}
+
+.tt-day-preview {
+  font-size: .78125rem;
+  color: var(--tt-emerald);
+  padding: .375rem .75rem;
+  background: var(--tt-available-bg);
+  border-radius: 20px;
+  align-self: flex-end;
+  white-space: nowrap;
+}
+
+// ── Setup button ───────────────────────────────────────────────────────────
+
+.tt-setup-btn {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  border-radius: var(--tt-radius-sm);
+  background: var(--tt-surface-2);
+  border: 1px solid var(--tt-border);
+  color: var(--tt-text);
+  font-size: .8125rem;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all .2s;
+
+  &:hover { border-color: var(--tt-emerald); color: var(--tt-emerald); }
+}
+
+// ── Type dots in legend ────────────────────────────────────────────────────
+
+.tt-leg-sep { width: 1px; background: var(--tt-border); height: 16px; margin: 0 .25rem; }
+
+.tt-type-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  &.type-consult  { background: #059669; }
+  &.type-checkup  { background: #3b82f6; }
+  &.type-surgery  { background: #ef4444; }
+  &.type-followup { background: #d97706; }
+}
+
+// ── Appointment detail card ────────────────────────────────────────────────
+
+.tt-appt-detail-card {
+  background: var(--tt-surface-2);
+  border: 1px solid var(--tt-border);
+  border-radius: var(--tt-radius-sm);
+  padding: .875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .625rem;
+}
+
+.tt-appt-patient, .tt-appt-type, .tt-appt-status {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  font-size: .875rem;
+  color: var(--tt-text);
+  i { color: var(--tt-text-muted); font-size: .875rem; }
+}
+
+.tt-slot-free-msg {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  color: var(--tt-emerald);
+  font-size: .875rem;
+  padding: .75rem 1rem;
+  background: var(--tt-available-bg);
+  border-radius: var(--tt-radius-sm);
+}
+
+@keyframes tt-pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

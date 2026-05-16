@@ -201,6 +201,13 @@
         </div>
 
         <div class="doc-card">
+          <div style="padding: 1rem 1rem 0;">
+            <input pInputText
+              [(ngModel)]="patientSearchQuery"
+              placeholder="Rechercher un patient…"
+              class="doc-form-input"
+              style="width: 100%;" />
+          </div>
           @if (loadingPatients()) {
             <div class="doc-skeleton-list">
               @for (i of skeletonArray(6); track i) {
@@ -208,7 +215,7 @@
               }
             </div>
           } @else {
-            <p-table [value]="patients() || []" [rowHover]="true" [paginator]="true" [rows]="8"
+            <p-table [value]="filteredPatients() || []" [rowHover]="true" [paginator]="true" [rows]="8"
               [showCurrentPageReport]="true" currentPageReportTemplate="{first}–{last} sur {totalRecords}">
               <ng-template pTemplate="header">
                 <tr>
@@ -306,39 +313,69 @@
                 <tr>
                   <th>Date & Heure</th>
                   <th>Patient</th>
-                  <th>Hôpital</th>
+                  <th>Type</th>
                   <th>Statut</th>
-                  <th style="width:12rem">Actions</th>
+                  <th style="width:14rem">Actions</th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-appt>
-                <tr>
-                  <td>{{ appt.dateTime | date:'dd/MM/yyyy HH:mm' }}</td>
+                <tr class="appt-row" [ngClass]="'appt-row--' + (appt.status | lowercase)">
+                  <!-- Date & heure -->
+                  <td>
+                    <div class="doc-dt-cell">
+                      <i class="pi pi-calendar doc-dt-icon"></i>
+                      <span>{{ appt.dateTime | date:'dd/MM/yyyy' }}</span>
+                      <span class="doc-dt-time">{{ appt.dateTime | date:'HH:mm' }}</span>
+                    </div>
+                  </td>
+                  <!-- Patient — uses enriched name first, falls back to lookup -->
                   <td>
                     <button type="button" class="doc-link-btn"
                       (click)="openMedicalFile({
                         id: appt.patientId,
-                        firstName: patientName(appt.patientId),
-                        lastName: '',
-                        email: patientEmail(appt.patientId),
+                        firstName: appt.patientFirstName || patientName(appt.patientId),
+                        lastName:  appt.patientLastName  || '',
+                        email:     appt.patientEmail     || patientEmail(appt.patientId),
                         age: 0
                       })">
-                      {{ patientName(appt.patientId) }}
+                      <span class="doc-patient-avatar sm">
+                        {{ initials(
+                             appt.patientFirstName || patientName(appt.patientId),
+                             appt.patientLastName  || '') }}
+                      </span>
+                      {{ appt.patientFirstName
+                           ? (appt.patientFirstName + ' ' + (appt.patientLastName || ''))
+                           : patientName(appt.patientId) }}
                     </button>
                   </td>
+                  <!-- Type -->
                   <td>
-                    <p-tag [value]="statusLabel(appt.status)" [severity]="statusSeverity(appt.status)" />
+                    <span class="doc-type-pill" [ngClass]="typeClass(appt.appointmentType)">
+                      {{ typeLabel(appt.appointmentType) }}
+                    </span>
                   </td>
+                  <!-- Statut -->
+                  <td>
+                    <span class="doc-status-badge" [ngClass]="'status-' + (appt.status | lowercase)">
+                      {{ statusLabel(appt.status) }}
+                    </span>
+                  </td>
+                  <!-- Actions -->
                   <td>
                     <div class="doc-action-btns">
                       @if (appt.status === 'PENDING') {
-                        <button type="button" class="doc-action-btn view"
+                        <button type="button" class="doc-action-btn confirm"
                           pTooltip="Confirmer" tooltipPosition="top"
                           (click)="confirmAppointment(appt)">
                           <i class="pi pi-check"></i>
                         </button>
                       }
-                      @if (appt.status === 'ACCEPTED' || appt.status === 'PENDING') {
+                      @if (appt.status === 'PENDING' || appt.status === 'CONFIRMED') {
+                        <button type="button" class="doc-action-btn reschedule"
+                          pTooltip="Reprogrammer" tooltipPosition="top"
+                          (click)="openRescheduleDialog(appt)">
+                          <i class="pi pi-calendar-clock"></i>
+                        </button>
                         <button type="button" class="doc-action-btn consult"
                           pTooltip="Ouvrir consultation" tooltipPosition="top"
                           (click)="openConsultation(appt)">
@@ -363,122 +400,10 @@
       }
 
       @if (activeNav() === 'availability') {
-
-        <div class="doc-page-header">
-          <div>
-            <h1 class="doc-page-title">Disponibilités</h1>
-            <p class="doc-page-sub">
-              Gérez vos horaires disponibles pour les rendez-vous.
-            </p>
-          </div>
-        </div>
-
-        <div class="doc-two-col-grid">
-
-          <!-- FORM -->
-          <div class="doc-card">
-            <div class="doc-card-header">
-              <div>
-                <h2 class="doc-card-title">Ajouter une disponibilité</h2>
-              </div>
-            </div>
-
-            <form [formGroup]="availabilityForm" class="doc-form-stack">
-
-              <div class="doc-form-group">
-                <label class="doc-form-label">Jour</label>
-
-                <p-select
-                  formControlName="dayOfWeek"
-                  [options]="[
-                    {label:'Lundi',value:'MONDAY'},
-                    {label:'Mardi',value:'TUESDAY'},
-                    {label:'Mercredi',value:'WEDNESDAY'},
-                    {label:'Jeudi',value:'THURSDAY'},
-                    {label:'Vendredi',value:'FRIDAY'},
-                    {label:'Samedi',value:'SATURDAY'},
-                    {label:'Dimanche',value:'SUNDAY'}
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  styleClass="w-full"
-                />
-              </div>
-
-              <div class="doc-form-group">
-                <label class="doc-form-label">Heure début</label>
-                <input
-                  type="time"
-                  pInputText
-                  formControlName="startTime"
-                  class="doc-form-input"
-                />
-              </div>
-
-              <div class="doc-form-group">
-                <label class="doc-form-label">Heure fin</label>
-                <input
-                  type="time"
-                  pInputText
-                  formControlName="endTime"
-                  class="doc-form-input"
-                />
-              </div>
-
-              <button
-                type="button"
-                class="doc-btn-primary"
-                (click)="submitAvailability()"
-              >
-                <i class="pi pi-check"></i>
-                Enregistrer
-              </button>
-
-            </form>
-          </div>
-
-          <!-- LIST -->
-          <div class="doc-card">
-
-            <div class="doc-card-header">
-              <div>
-                <h2 class="doc-card-title">Horaires enregistrés</h2>
-              </div>
-            </div>
-
-            @for (slot of availability(); track slot.dayOfWeek) {
-
-              <div class="doc-availability-row">
-
-                <div>
-                  <strong>{{ slot.dayOfWeek }}</strong>
-                  <p>
-                    {{ slot.startTime }} - {{ slot.endTime }}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  class="doc-action-btn delete"
-                  (click)="deleteAvailability(slot.dayOfWeek)"
-                >
-                  <i class="pi pi-trash"></i>
-                </button>
-
-              </div>
-
-            } @empty {
-
-              <div class="doc-empty-state">
-                <i class="pi pi-clock"></i>
-                <span>Aucune disponibilité définie</span>
-              </div>
-
-            }
-
-          </div>
-
-        </div>
+        <app-doctor-timetable
+          [doctorId]="currentUser()?.id ?? ''"
+          [appointments]="appointments()"
+        />
       }
 
       @if (activeNav() === 'medical-file') {
@@ -729,24 +654,66 @@
   [modal]="true" [draggable]="false" [resizable]="false"
   header="Nouveau rendez-vous"
   styleClass="doc-dialog"
-  [style]="{ width: '32rem' }"
+  [style]="{ width: '38rem' }"
 >
   <div class="doc-dialog-body">
     <form [formGroup]="appointmentForm" class="doc-form-stack">
+
+      <!-- Patient -->
       <div class="doc-form-group">
-        <label class="doc-form-label" for="apt-patient">Patient *</label>
-        <p-select inputId="apt-patient" formControlName="patientId" [options]="patientOptions()" optionLabel="label" optionValue="value" placeholder="Sélectionner" styleClass="w-full" />
+        <label class="doc-form-label">Patient *</label>
+        <p-select formControlName="patientId"
+          [options]="patientOptions()" optionLabel="label" optionValue="value"
+          placeholder="Sélectionner un patient" styleClass="w-full"
+          [filter]="true" filterPlaceholder="Rechercher…" />
       </div>
+
+      <!-- Date -->
       <div class="doc-form-group">
-        <label class="doc-form-label" for="apt-date">Date *</label>
-        <p-datepicker inputId="apt-date" formControlName="date" [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full" />
+        <label class="doc-form-label">Date *</label>
+        <p-datepicker formControlName="date"
+          [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full"
+          (onSelect)="checkAvailability()" />
       </div>
+
+      <!-- Créneau horaire -->
+      <div class="doc-form-group">
+        <label class="doc-form-label">Créneau horaire *</label>
+        @if (checkingAvailability()) {
+          <div class="doc-slot-info"><i class="pi pi-spin pi-spinner"></i> Chargement des créneaux…</div>
+        } @else if (slotOptions().length === 0) {
+          <div class="doc-slot-info doc-slot-empty"><i class="pi pi-calendar-times"></i> Aucun créneau disponible ce jour.</div>
+        } @else {
+          <p-select formControlName="selectedSlot"
+            [options]="slotOptions()" optionLabel="label" optionValue="value"
+            placeholder="Choisir un créneau" styleClass="w-full" />
+        }
+      </div>
+
+      <!-- Type de rendez-vous -->
+      <div class="doc-form-group">
+        <label class="doc-form-label">Type de rendez-vous *</label>
+        <p-select formControlName="appointmentType"
+          [options]="appointmentTypeOptions" optionLabel="label" optionValue="value"
+          styleClass="w-full" />
+      </div>
+
+      <!-- Durée -->
+      <div class="doc-form-group">
+        <label class="doc-form-label">Durée *</label>
+        <p-select formControlName="durationMinutes"
+          [options]="durationOptions" optionLabel="label" optionValue="value"
+          styleClass="w-full" />
+      </div>
+
     </form>
   </div>
   <ng-template pTemplate="footer">
     <button type="button" class="doc-btn-secondary" (click)="appointmentDialogVisible.set(false)">Annuler</button>
-    <button type="button" class="doc-btn-primary" (click)="submitAppointment()" [disabled]="appointmentForm.invalid || submitting()">
-      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> } @else { <i class="pi pi-check"></i> Créer }
+    <button type="button" class="doc-btn-primary" (click)="submitAppointment()"
+      [disabled]="appointmentForm.invalid || submitting() || slotOptions().length === 0">
+      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> Création… }
+      @else { <i class="pi pi-check"></i> Créer le rendez-vous }
     </button>
   </ng-template>
 </p-dialog>
@@ -842,16 +809,8 @@
         <input id="edit-em" pInputText formControlName="email" type="email" class="doc-form-input" />
       </div>
       <div class="doc-form-group">
-        <label class="doc-form-label" for="edit-ph">Téléphone</label>
-        <input id="edit-ph" pInputText formControlName="phone" class="doc-form-input" />
-      </div>
-      <div class="doc-form-group">
         <label class="doc-form-label" for="edit-dob">Date de naissance</label>
         <input id="edit-dob" pInputText formControlName="dateOfBirth" class="doc-form-input" placeholder="YYYY-MM-DD" />
-      </div>
-      <div class="doc-form-group">
-        <label class="doc-form-label" for="edit-addr">Adresse</label>
-        <input id="edit-addr" pInputText formControlName="address" class="doc-form-input" />
       </div>
     </form>
   </div>
@@ -869,6 +828,7 @@
   header="Compléter la consultation"
   styleClass="doc-dialog doc-consultation-dialog"
   [style]="{ width: '60rem', maxWidth: '95vw' }"
+  [contentStyle]="{ 'overflow-y': 'auto', 'max-height': '75vh' }"
 >
   <div class="doc-dialog-body doc-consultation-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
     <div class="doc-consult-left">
@@ -894,7 +854,7 @@
     <div class="doc-prediction-panel" style="background: rgba(0,0,0,0.02); padding: 24px; border-radius: 12px; border: 1px solid var(--doc-card-border);">
       <h3 class="doc-card-title" style="margin-bottom: 16px;">Analyse du Risque IA</h3>
       <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-         <div class="doc-form-group">
+        <div class="doc-form-group">
           <label class="doc-form-label">Âge</label>
           <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
         </div>
@@ -903,12 +863,48 @@
           <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
-          <label class="doc-form-label">Tension repos</label>
+          <label class="doc-form-label">Douleur thoracique</label>
+          <p-select formControlName="chestPainType" [options]="chestPainOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Tension repos (mmHg)</label>
           <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
-          <label class="doc-form-label">Cholestérol</label>
+          <label class="doc-form-label">Cholestérol (mg/dl)</label>
           <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Glycémie à jeun &gt; 120</label>
+          <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">ECG au repos</label>
+          <p-select formControlName="restingECG" [options]="ecgOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">FC max (bpm)</label>
+          <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Angine à l'effort</label>
+          <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Dépression ST (oldpeak)</label>
+          <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Pente ST (slope)</label>
+          <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group">
+          <label class="doc-form-label">Vaisseaux colorés</label>
+          <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" styleClass="w-full" />
+        </div>
+        <div class="doc-form-group" style="grid-column: span 2;">
+          <label class="doc-form-label">Thalassémie</label>
+          <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
         </div>
       </form>
       <div class="doc-pred-actions" style="margin-top: 24px; display: flex; flex-direction: column; align-items: center;">
@@ -929,6 +925,58 @@
     <button type="button" class="doc-btn-secondary" (click)="consultationDialogVisible.set(false)">Plus tard</button>
     <button type="button" class="doc-btn-primary" (click)="saveConsultation()" [disabled]="consultationForm.invalid || submitting()">
       Terminer la consultation
+    </button>
+  </ng-template>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="rescheduleDialogVisible"
+  [modal]="true" [draggable]="false" [resizable]="false"
+  header="Reprogrammer le rendez-vous"
+  styleClass="doc-dialog"
+  [style]="{ width: '34rem' }"
+>
+  <div class="doc-dialog-body">
+    @if (rescheduleTarget()) {
+      <div class="doc-reschedule-info">
+        <i class="pi pi-calendar-clock"></i>
+        <div>
+          <strong>
+            {{ rescheduleTarget()!.patientFirstName
+               ? (rescheduleTarget()!.patientFirstName + ' ' + (rescheduleTarget()!.patientLastName || ''))
+               : patientName(rescheduleTarget()!.patientId) }}
+          </strong>
+          <p>Créneau actuel : {{ rescheduleTarget()!.dateTime | date:'dd/MM/yyyy HH:mm' }}</p>
+        </div>
+      </div>
+    }
+    <form [formGroup]="rescheduleForm" class="doc-form-stack">
+      <div class="doc-form-group">
+        <label class="doc-form-label">Nouvelle date *</label>
+        <p-datepicker formControlName="date"
+          [showIcon]="true" dateFormat="dd/mm/yy" styleClass="w-full"
+          (onSelect)="loadRescheduleSlots()" />
+      </div>
+      <div class="doc-form-group">
+        <label class="doc-form-label">Nouveau créneau *</label>
+        @if (loadingRescheduleSlots()) {
+          <div class="doc-slot-info"><i class="pi pi-spin pi-spinner"></i> Chargement…</div>
+        } @else if (rescheduleSlotOptions().length === 0) {
+          <div class="doc-slot-info doc-slot-empty"><i class="pi pi-calendar-times"></i> Aucun créneau disponible.</div>
+        } @else {
+          <p-select formControlName="selectedSlot"
+            [options]="rescheduleSlotOptions()" optionLabel="label" optionValue="value"
+            placeholder="Choisir un créneau" styleClass="w-full" />
+        }
+      </div>
+    </form>
+  </div>
+  <ng-template pTemplate="footer">
+    <button type="button" class="doc-btn-secondary" (click)="rescheduleDialogVisible.set(false)">Annuler</button>
+    <button type="button" class="doc-btn-primary" (click)="submitReschedule()"
+      [disabled]="rescheduleForm.invalid || submitting() || rescheduleSlotOptions().length === 0">
+      @if (submitting()) { <i class="pi pi-spin pi-spinner"></i> Reprogrammation… }
+      @else { <i class="pi pi-calendar-clock"></i> Confirmer }
     </button>
   </ng-template>
 </p-dialog>

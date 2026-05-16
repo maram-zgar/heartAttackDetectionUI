@@ -303,6 +303,121 @@
   }
 
 //------------ DOCTOR AVAILABILITY -------------------
+
+/* ── Appointment table row coloring ──────────────────────────────────── */
+.appt-row {
+  transition: background 0.15s;
+}
+.appt-row--pending  { background: rgba(245, 158, 11, 0.04); }
+.appt-row--confirmed, .appt-row--accepted { background: rgba(59, 130, 246, 0.04); }
+.appt-row--cancelled { background: rgba(244, 63, 94, 0.04); }
+.appt-row--completed { background: rgba(16, 185, 129, 0.04); }
+
+/* ── Status badge ────────────────────────────────────────────────────── */
+.doc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.doc-status-badge.status-pending  { background: rgba(245,158,11,0.12); color: #b45309; }
+.doc-status-badge.status-confirmed,.doc-status-badge.status-accepted { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.doc-status-badge.status-cancelled { background: rgba(244,63,94,0.12); color: #be123c; }
+.doc-status-badge.status-completed { background: rgba(16,185,129,0.12); color: #065f46; }
+.doc-status-badge.status-rescheduled { background: rgba(139,92,246,0.12); color: #6d28d9; }
+
+/* ── Appointment type pill ───────────────────────────────────────────── */
+.doc-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.doc-type-pill.type-consult  { background: rgba(5,150,105,0.12);  color: #065f46; }
+.doc-type-pill.type-checkup  { background: rgba(59,130,246,0.12); color: #1d4ed8; }
+.doc-type-pill.type-surgery  { background: rgba(239,68,68,0.12);  color: #b91c1c; }
+.doc-type-pill.type-followup { background: rgba(217,119,6,0.12);  color: #92400e; }
+
+/* ── Date/time cell ──────────────────────────────────────────────────── */
+.doc-dt-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.doc-dt-icon { color: var(--doc-text-muted); font-size: 0.85rem; }
+.doc-dt-time {
+  font-size: 0.8rem;
+  color: var(--doc-text-secondary);
+  background: rgba(0,0,0,0.04);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* ── Action buttons additions ────────────────────────────────────────── */
+.doc-action-btn.confirm   { color: #059669; border-color: rgba(5,150,105,0.25); }
+.doc-action-btn.confirm:hover { background: rgba(5,150,105,0.1); }
+.doc-action-btn.reschedule { color: #7c3aed; border-color: rgba(124,58,237,0.25); }
+.doc-action-btn.reschedule:hover { background: rgba(124,58,237,0.1); }
+
+/* ── Slot loading/empty states in dialog ─────────────────────────────── */
+.doc-slot-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--doc-card-border);
+  border-radius: var(--doc-radius);
+  color: var(--doc-text-secondary);
+  font-size: 0.875rem;
+}
+.doc-slot-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--doc-card-border);
+  border-radius: var(--doc-radius);
+  color: var(--doc-text-muted);
+  font-size: 0.875rem;
+  background: rgba(0,0,0,0.02);
+}
+
+/* ── Reschedule dialog patient banner ───────────────────────────────── */
+.doc-reschedule-patient {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(16,185,129,0.05);
+  border: 1px solid rgba(16,185,129,0.15);
+  border-radius: var(--doc-radius);
+  margin-bottom: 16px;
+}
+
+/* ── Timetable type colors (added to SCSS) ──────────────────────────── */
+.tt-cell--booked.type-consult  { border-left-color: #059669 !important; }
+.tt-cell--booked.type-checkup  { border-left-color: #3b82f6 !important; }
+.tt-cell--booked.type-surgery  { border-left-color: #ef4444 !important; }
+.tt-cell--booked.type-followup { border-left-color: #d97706 !important; }
+
+.tt-cell-type-tag {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--tt-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
   .doc-availability-row {
     display: flex;
     align-items: center;
@@ -319,4 +434,45 @@
     }
   }
 
+}
+
+.doc-appt-row {
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+
+  td:first-child {
+    border-left: 4px solid transparent;
+  }
+
+  &.status-pending td:first-child {
+    border-left-color: var(--doc-amber);
+  }
+
+  &.status-confirmed td:first-child {
+    border-left-color: var(--doc-emerald);
+  }
+
+  &.status-pending {
+    background: rgba(245, 158, 11, .07);
+  }
+
+  &.status-confirmed {
+    background: rgba(16, 185, 129, .07);
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 0 0 999px rgba(16, 185, 129, .025);
+  }
+}
+
+.doc-inline-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--doc-text-secondary);
+  font-size: .875rem;
+  padding: .75rem;
+  border: 1px solid var(--doc-card-border);
+  border-radius: var(--doc-radius);
+  background: var(--doc-content-bg);
 }
