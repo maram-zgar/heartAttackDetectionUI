@@ -124,6 +124,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   // ── DI ────────────────────────────────────────────────────────────────────
   private readonly store = inject(Store);
+  private readonly user = this.store.selectSignal(selectCurrentUser);
   private readonly doctorService = inject(DoctorService);
   private readonly appointmentService = inject(AppointmentService);
   private readonly medicalFileService = inject(MedicalFileService);
@@ -859,7 +860,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.submittingChangePassword.set(true);
     const { currentPassword, newPassword } = this.changePasswordForm.value;
 
-    this.doctorService.changePassword({ currentPassword, newPassword }).pipe(
+    this.doctorService.changePassword({ currentPassword, newPassword, email: this.user()?.email! }).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingChangePassword.set(false)),
     ).subscribe({

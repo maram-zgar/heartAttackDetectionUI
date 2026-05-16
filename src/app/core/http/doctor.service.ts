@@ -2,6 +2,8 @@ import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { Observable } from 'rxjs';
+import { Store } from '@ngrx/store';
+import { selectCurrentUser } from '../../store/auth/auth.selectors';
 
 export interface Patient {
   id: string | number;
@@ -36,6 +38,7 @@ export interface ConsultationComplete {
 }
 
 export interface ChangePasswordRequest {
+  email: string;
   currentPassword: string;
   newPassword: string;
 }
@@ -75,7 +78,7 @@ export class DoctorService {
   }
 
   changePassword(data: ChangePasswordRequest): Observable<any> {
-    return this.http.post(`${this.baseUrl}/doctors/change-password`, data);
+    return this.http.post(`${this.baseUrl}/doctors/change-password`, {...data});
   }
 
    getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
