@@ -9,7 +9,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
-  private readonly baseUrl = '/api/v1/auth';
+  private readonly baseUrl = 'http://localhost:8080/api/v1/auth';
   private accessToken: string | null = this.isBrowser ? localStorage.getItem('access_token') : null;
 
   authenticate(request: { email: string; password: string }): Observable<{ accessToken: string; refreshToken: string }> {

@@ -31,7 +31,7 @@ export interface ActivityEntry {
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private readonly baseUrl = '/admin';
+  private readonly baseUrl = 'http://localhost:8080/admin';
 
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);

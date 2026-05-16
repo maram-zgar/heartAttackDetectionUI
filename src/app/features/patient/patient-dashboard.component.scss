@@ -210,7 +210,7 @@
 .cs-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .cs-section-header {
@@ -223,7 +223,7 @@
 
 .cs-section-title {
   font-family: var(--brand-font);
-  font-size: 1.9rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.35rem;
@@ -249,7 +249,7 @@
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 18px;
-  padding: 1.25rem;
+  padding: 1rem;
   display: flex;
   gap: 1rem;
   transition: var(--transition);
@@ -301,7 +301,7 @@
 
 .cs-stat-value {
   font-family: var(--brand-font);
-  font-size: 1.8rem;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
@@ -611,5 +611,34 @@
 
   .cs-section-title {
     font-size: 1.5rem;
+  }
+}
+
+.cs-table-row {
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+
+  td:first-child {
+    border-left: 4px solid transparent;
+  }
+
+  &.status-pending {
+    background: rgba(245, 158, 11, .07);
+
+    td:first-child {
+      border-left-color: #f59e0b;
+    }
+  }
+
+  &.status-confirmed {
+    background: rgba(16, 185, 129, .07);
+
+    td:first-child {
+      border-left-color: #10b981;
+    }
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 0 0 999px rgba(16, 185, 129, .025);
   }
 }

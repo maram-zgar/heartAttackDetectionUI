@@ -14,7 +14,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class AppointmentService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = '/api/v1/appointments';
+  private readonly baseUrl = 'http://localhost:8080/api/v1/appointments';
 
   findAll(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(this.baseUrl);

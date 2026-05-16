@@ -68,6 +68,7 @@ import { PredictionService } from '../../core/http/prediction.service';
 import { SelectModule } from 'primeng/select';
 import { UserProfile } from '../../shared/models/user-profile.model';
 import { sign } from 'crypto';
+import { DoctorTimetableComponent } from './components/timetable/doctor-timetable.component';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
@@ -113,6 +114,7 @@ interface AppointmentFormValue {
     PasswordModule,
     Skeleton,
     DrawerModule,
+    DoctorTimetableComponent,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './doctor-dashboard.component.html',
@@ -193,6 +195,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   readonly submittingEditPatient   = signal(false);
   readonly submittingChangePassword = signal(false);
   readonly submittingUpdateDoctor  = signal(false);
+  readonly patientSearchQuery = signal('');
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – data
@@ -302,6 +305,128 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return this.appointments().filter(a => String(a.patientId) === String(pid));
   });
 
+  readonly filteredPatients = computed(() => {
+    const q = this.patientSearchQuery().toLowerCase().trim();
+    if (!q) return this.patients();
+    return this.patients().filter(p =>
+      `${p.firstName} ${p.lastName} ${p.email}`.toLowerCase().includes(q)
+    );
+  });
+
+  // ── Slot / type / duration helpers ──────────────────────────────────────────
+
+  /** ISO slot strings → HH:mm dropdown options */
+  readonly slotOptions = computed(() =>
+    this.availableSlots().map(s => ({ label: s.substring(11, 16), value: s }))
+  );
+
+  readonly appointmentTypeOptions = [
+    { label: 'Consultation', value: 'CONSULTATION' },
+    { label: 'Bilan',        value: 'CHECKUP'      },
+    { label: 'Chirurgie',    value: 'SURGERY'      },
+    { label: 'Suivi',        value: 'FOLLOW_UP'    },
+  ];
+
+  readonly durationOptions = [
+    { label: '15 min',   value: 15  },
+    { label: '30 min',   value: 30  },
+    { label: '45 min',   value: 45  },
+    { label: '1 heure',  value: 60  },
+    { label: '1h 30',    value: 90  },
+    { label: '2 heures', value: 120 },
+  ];
+
+  typeLabel(type: string | undefined): string {
+    const map: Record<string, string> = {
+      CONSULTATION: 'Consultation', CHECKUP: 'Bilan',
+      SURGERY: 'Chirurgie', FOLLOW_UP: 'Suivi',
+    };
+    return type ? (map[type] ?? type) : 'Consultation';
+  }
+
+  typeClass(type: string | undefined): string {
+    const map: Record<string, string> = {
+      CONSULTATION: 'type-consult', CHECKUP: 'type-checkup',
+      SURGERY: 'type-surgery', FOLLOW_UP: 'type-followup',
+    };
+    return type ? (map[type] ?? 'type-consult') : 'type-consult';
+  }
+
+  // ── Reschedule ──────────────────────────────────────────────────────────────
+
+  readonly rescheduleDialogVisible = signal(false);
+  readonly rescheduleTarget        = signal<Appointment | null>(null);
+  readonly rescheduleAvailSlots    = signal<string[]>([]);
+  readonly loadingRescheduleSlots  = signal(false);
+
+  rescheduleForm = this.fb.nonNullable.group({
+    date:         this.fb.nonNullable.control(new Date(), Validators.required),
+    selectedSlot: this.fb.nonNullable.control('',        Validators.required),
+  });
+
+  readonly rescheduleSlotOptions = computed(() =>
+    this.rescheduleAvailSlots().map(s => ({ label: s.substring(11, 16), value: s }))
+  );
+
+  openRescheduleDialog(appt: Appointment): void {
+    this.rescheduleTarget.set(appt);
+    this.rescheduleAvailSlots.set([]);
+    this.rescheduleForm.reset({ date: new Date(), selectedSlot: '' });
+    this.rescheduleDialogVisible.set(true);
+  }
+
+  loadRescheduleSlots(): void {
+    const appt     = this.rescheduleTarget();
+    const doctorId = appt?.doctorId ?? this.currentUser()?.id;
+    const date     = this.rescheduleForm.controls.date.value;
+    if (!doctorId || !date) return;
+
+    this.rescheduleForm.controls.selectedSlot.setValue('');
+    this.rescheduleAvailSlots.set([]);
+    this.loadingRescheduleSlots.set(true);
+    this.appointmentService
+      .getAvailableSlots(doctorId, this.toDateOnly(date))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.loadingRescheduleSlots.set(false)))
+      .subscribe({
+        next:  r => this.rescheduleAvailSlots.set(r.slots),
+        error: () => this.rescheduleAvailSlots.set([]),
+      });
+  }
+
+  submitReschedule(): void {
+    const appt = this.rescheduleTarget();
+    if (!appt || this.rescheduleForm.invalid) { this.rescheduleForm.markAllAsTouched(); return; }
+
+    const { selectedSlot } = this.rescheduleForm.getRawValue();
+    const patient = this.patients().find(p => String(p.id) === String(appt.patientId));
+
+    const req: AppointmentRequest = {
+      patientId:        String(appt.patientId),
+      doctorId:         appt.doctorId ?? this.currentUser()!.id,
+      dateTime:         selectedSlot,
+      patientEmail:     patient?.email     ?? (appt as any).patientEmail     ?? '',
+      patientFirstName: patient?.firstName ?? (appt as any).patientFirstName ?? '',
+    };
+
+    this.submitting.set(true);
+    this.appointmentService.reschedule(appt.id, req)
+      .pipe(takeUntil(this.destroy$), finalize(() => this.submitting.set(false)))
+      .subscribe({
+        next: updated => {
+          const enriched = {
+            ...updated,
+            patientFirstName: patient?.firstName ?? (appt as any).patientFirstName,
+            patientLastName:  patient?.lastName  ?? (appt as any).patientLastName,
+            appointmentType:  (appt as any).appointmentType,
+          } as unknown as Appointment;
+          this.replaceAppointment(enriched);
+          this.rescheduleDialogVisible.set(false);
+          this.messageService.add({ severity: 'success', summary: 'Reprogrammé', detail: 'Nouveau créneau enregistré.' });
+        },
+        error: (err: unknown) => this.showError(this.errorMessage(err)),
+      });
+  }
+
   loadAvailability(): void {
     const doctorId = this.currentUser()?.id;
     if (!doctorId) return;
@@ -371,8 +496,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   /** Typed explicitly so controls['patientId'] etc. are accepted. */
   appointmentForm!: FormGroup<{
-    patientId: FormControl<string>;
-    date:      FormControl<Date>;
+    patientId:       FormControl<string>;
+    date:            FormControl<Date>;
+    selectedSlot:    FormControl<string>;
+    appointmentType: FormControl<string>;
+    durationMinutes: FormControl<number>;
   }>;
 
   consultationForm!:    FormGroup;
@@ -439,9 +567,13 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   openAppointmentDialog(patient?: Patient): void {
     this.availableSlots.set([]);
+    this.checkingAvailability.set(false);
     this.appointmentForm.reset({
-      patientId: patient ? String(patient.id) : '',
-      date:      new Date(),
+      patientId:       patient ? String(patient.id) : '',
+      date:            new Date(),
+      selectedSlot:    '',
+      appointmentType: 'CONSULTATION',
+      durationMinutes: 30,
     });
     this.appointmentDialogVisible.set(true);
     this.checkAvailability();
@@ -452,16 +584,17 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     const date     = this.appointmentForm.controls.date.value;
     if (!doctorId || !date) return;
 
+    // Clear stale slot whenever the date changes
+    this.appointmentForm.controls.selectedSlot.setValue('');
+    this.availableSlots.set([]);
+
     this.checkingAvailability.set(true);
     this.appointmentService
       .getAvailableSlots(doctorId, this.toDateOnly(date))
       .pipe(takeUntil(this.destroy$), finalize(() => this.checkingAvailability.set(false)))
       .subscribe({
         next:  r  => this.availableSlots.set(r.slots),
-        error: () => {
-          this.availableSlots.set([]);
-          this.showError('Disponibilité du médecin introuvable pour cette date.');
-        },
+        error: () => this.availableSlots.set([]),
       });
   }
 
@@ -471,17 +604,22 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const patient = this.patients().find(
-      p => String(p.id) === this.appointmentForm.controls.patientId.value,
-    );
+    const { patientId, selectedSlot, appointmentType, durationMinutes } =
+      this.appointmentForm.getRawValue();
+
+    if (!selectedSlot) { this.showError('Veuillez sélectionner un créneau horaire.'); return; }
+
+    const patient = this.patients().find(p => String(p.id) === patientId);
     if (!patient) { this.showError('Patient introuvable.'); return; }
 
     const request: AppointmentRequest = {
       patientId:        String(patient.id),
       doctorId:         this.currentUser()!.id,
-      dateTime:         this.toDateOnly(this.appointmentForm.controls.date.value),
+      dateTime:         selectedSlot,   // full ISO e.g. '2025-06-16T09:00:00'
       patientEmail:     patient.email,
       patientFirstName: patient.firstName,
+      appointmentType: appointmentType as AppointmentRequest['appointmentType'],
+      durationMinutes,
     };
 
     this.submitting.set(true);
@@ -490,12 +628,21 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       finalize(() => this.submitting.set(false)),
     ).subscribe({
       next: appt => {
-        this.appointments.update(list => [appt, ...list]);
+        // Enrich locally so the table and timetable show the name/type immediately
+        const enriched = {
+          ...appt,
+          patientFirstName: patient.firstName,
+          patientLastName:  patient.lastName,
+          patientEmail:     patient.email,
+          appointmentType,
+          durationMinutes,
+        } as unknown as Appointment;
+        this.appointments.update(list => [enriched, ...list]);
         this.appointmentDialogVisible.set(false);
         this.messageService.add({
           severity: 'success',
           summary:  'Rendez-vous créé',
-          detail:   'La demande est enregistrée selon la disponibilité du médecin.',
+          detail:   `${patient.firstName} ${patient.lastName} · ${selectedSlot.substring(0,16).replace('T',' ')}`,
         });
       },
       error: (err: unknown) => this.showError(this.errorMessage(err)),
@@ -1073,8 +1220,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     // Typed nonNullable form – controls are accessed via .controls.X directly
     const nnfb = this.fb.nonNullable;
     this.appointmentForm = nnfb.group({
-      patientId: nnfb.control('',         Validators.required),
-      date:      nnfb.control(new Date(), Validators.required),
+      patientId:       nnfb.control('',            Validators.required),
+      date:            nnfb.control(new Date(),   Validators.required),
+      selectedSlot:    nnfb.control('',            Validators.required),
+      appointmentType: nnfb.control('CONSULTATION', Validators.required),
+      durationMinutes: nnfb.control(30,            [Validators.required, Validators.min(15)]),
     });
 
     this.consultationForm = this.fb.group({

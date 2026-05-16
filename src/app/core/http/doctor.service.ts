@@ -45,47 +45,53 @@ export class DoctorService {
   private http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+  private readonly baseUrl = 'http://localhost:8080/api/v1';
 
   private getAuthHeaders(): { headers: HttpHeaders } {
     const token = this.isBrowser ? localStorage.getItem('access_token') : null;
     return {
-      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` })
+      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
     };
   }
 
   getPatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>('/api/v1/patients');
+    return this.http.get<Patient[]>(`${this.baseUrl}/patients`);
   }
 
   createPatient(data: Partial<Patient>): Observable<void> {
-    return this.http.post<void>('/api/v1/patients', data);
+    return this.http.post<void>(`${this.baseUrl}/patients`, data);
   }
 
   getPatientById(id: number): Observable<Patient> {
-    return this.http.get<Patient>(`/api/v1/patients/${id}`);
+    return this.http.get<Patient>(`${this.baseUrl}/patients/${id}`);
   }
 
   getAppointments(): Observable<Appointment[]> {
-    return this.http.get<Appointment[]>('/api/v1/appointments');
+    return this.http.get<Appointment[]>(`${this.baseUrl}/appointments`);
   }
 
   completeConsultation(data: ConsultationComplete): Observable<any> {
-    return this.http.post('/api/v1/doctors/consultation-complete', data);
+    return this.http.post(`${this.baseUrl}/doctors/consultation-complete`, data);
   }
 
   changePassword(data: ChangePasswordRequest): Observable<any> {
-    return this.http.post('/api/v1/doctors/change-password', data);
+    return this.http.post(`${this.baseUrl}/doctors/change-password`, data);
+  }
+
+   getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
+    return this.http.get<{ firstName: string; lastName: string }>(`${this.baseUrl}/api/v1/doctors/${id}`);
   }
 
   updateDoctor(data: any): Observable<any> {
-    return this.http.put('/api/v1/doctors', data);
+    return this.http.put(`${this.baseUrl}/doctors`, data);
   }
 
   deletePatient(id: string | number): Observable<any> {
-    return this.http.delete(`/api/v1/patients/${id}`);
+    return this.http.delete(`${this.baseUrl}/patients/${id}`);
   }
 
   updatePatient(id: string | number, data: Partial<Patient>): Observable<Patient> {
-    return this.http.put<Patient>(`/api/v1/patients/${id}`, data);
+    return this.http.put<Patient>(`${this.baseUrl}/patients/${id}`, data);
   }
 }
+ 

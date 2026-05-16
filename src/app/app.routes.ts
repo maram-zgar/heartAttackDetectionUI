@@ -30,14 +30,14 @@ export const routes: Routes = [
   },
 
 // Patient Dashboard
-//  {
-//    path: 'patient/dashboard',
-//    loadComponent: () =>
-//      import('./features/patient/patient-dashboard.component').then(
-//        (m) => m.PatientDashboardComponent
-//      ),
-//    canActivate: [authGuard],
-//  },
+  {
+    path: 'patient/dashboard',
+    loadComponent: () =>
+      import('./features/patient/patient-dashboard.component').then(
+        (m) => m.PatientDashboardComponent
+      ),
+    canActivate: [authGuard],
+  },
 
 
 
