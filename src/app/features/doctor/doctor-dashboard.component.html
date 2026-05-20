@@ -81,7 +81,7 @@
           <i class="pi" [ngClass]="isDark ? 'pi-sun' : 'pi-moon'"></i>
         </button>
         
-        <div class="doc-avatar-chip" (click)="settingsPanelOpen.set(true)" style="cursor: pointer;">
+        <div class="doc-avatar-chip" (click)="profileModalVisible.set(true)" style="cursor: pointer;">
           <div class="doc-avatar">{{ doctorInitials() }}</div>
           <div class="doc-avatar-info">
             <span class="doc-avatar-name">Dr {{ doctorName() }}</span>
@@ -148,6 +148,7 @@
               </div>
               <button type="button" class="doc-btn-ghost" (click)="navigateTo('patients')">Voir tous</button>
             </div>
+            <div style="max-height: 300px; overflow-y: auto;">
             @for (patient of patients().slice(0, 5) || []; track patient.id) {
               <button type="button" class="doc-patient-row doc-row-button" (click)="openMedicalFile(patient)">
                 <span class="doc-patient-avatar">{{ initials(patient.firstName, patient.lastName) }}</span>
@@ -160,6 +161,7 @@
             } @empty {
               <div class="doc-empty-state"><i class="pi pi-inbox"></i><span>Aucun patient</span></div>
             }
+            </div>
           </div>
 
           <div class="doc-card">
@@ -170,6 +172,7 @@
               </div>
               <button type="button" class="doc-btn-ghost" (click)="navigateTo('appointments')">Agenda</button>
             </div>
+            <div style="max-height: 300px; overflow-y: auto;">
             @for (appt of todayAppointmentsList() || []; track appt.id) {
               <div class="doc-appointment-row">
                 <div class="doc-appointment-time">{{ appt.dateTime | date:'HH:mm' }}</div>
@@ -184,6 +187,7 @@
                 <i class="pi pi-calendar-blank"></i><span>Aucun rendez-vous aujourd'hui</span>
               </div>
             }
+            </div>
           </div>
         </div>
       }
@@ -201,12 +205,11 @@
         </div>
 
         <div class="doc-card">
-          <div style="padding: 1rem 1rem 0;">
-            <input pInputText
-              [(ngModel)]="patientSearchQuery"
-              placeholder="Rechercher un patient…"
-              class="doc-form-input"
-              style="width: 100%;" />
+          <div class="doc-patient-search-bar">
+            <i class="pi pi-search doc-search-icon"></i>
+            <input pInputText [(ngModel)]="patientSearchQuery"
+              placeholder="Rechercher un patient…" class="doc-form-input" />
+            <span class="doc-patient-count">{{ filteredPatients()?.length || 0 }} patient(s)</span>
           </div>
           @if (loadingPatients()) {
             <div class="doc-skeleton-list">
@@ -221,7 +224,6 @@
                 <tr>
                   <th>Patient</th>
                   <th>Email</th>
-                  <th>Hôpital</th>
                   <th style="width:11rem">Actions</th>
                 </tr>
               </ng-template>
@@ -403,6 +405,7 @@
         <app-doctor-timetable
           [doctorId]="currentUser()?.id ?? ''"
           [appointments]="appointments()"
+          (slotSelected)="onTimetableSlotSelected($event)"
         />
       }
 
@@ -510,84 +513,104 @@
           </div>
         </div>
 
-        <div class="doc-card" style="display: flex; flex-direction: column; gap: 24px;">
+        < class="doc-card" style="display: flex; flex-direction: column; gap: 24px;">
           
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
-            <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              <div class="doc-form-group">
-                <label class="doc-form-label">Âge</label>
-                <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Sexe</label>
-                <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Douleur thoracique</label>
-                <p-select formControlName="chestPainType" [options]="chestPainOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Tension repos (mmHg)</label>
-                <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Cholestérol (mg/dl)</label>
-                <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Glycémie à jeun > 120</label>
-                <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-              </div>
-               <div class="doc-form-group">
-                <label class="doc-form-label">ECG au repos</label>
-                <p-select formControlName="restingECG" [options]="ecgOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">FC max (bpm)</label>
-                <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Angine à l'effort</label>
-                <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Dépression ST (oldpeak)</label>
-                <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Pente ST (slope)</label>
-                <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
-              </div>
-              <div class="doc-form-group">
-                <label class="doc-form-label">Vaisseaux colorés</label>
-                <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" styleClass="w-full" />
-              </div>
-               <div class="doc-form-group" style="grid-column: span 2;">
-                <label class="doc-form-label">Thalassémie</label>
-                <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
-              </div>
-            </form>
-
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; border: 1px solid var(--doc-card-border); border-radius: 12px; background: rgba(0,0,0,0.02);">
-              <button type="button" class="doc-btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem; margin-bottom: 24px;" (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
-                @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse en cours... }
-                @else { <i class="pi pi-chart-line"></i> Lancer l'analyse }
-              </button>
-
-              @if (predictionResult()) {
-                <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 1" style="text-align: center; width: 100%;">
-                  <i class="pi" [ngClass]="predictionResult()?.prediction === 1 ? 'pi-exclamation-triangle' : 'pi-shield'" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                  <div>
-                    <strong style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;">{{ riskText(predictionResult()!) }}</strong>
-                    <span>Probabilité estimée : {{ predictionResult()?.probability | percent:'1.0-1' }}</span>
-                  </div>
-                </div>
-              }
+        <div class="doc-prediction-layout">
+          <div class="doc-card doc-prediction-form-card">
+            <div class="doc-card-header">
+              <h2 class="doc-card-title">Paramètres cliniques</h2>
             </div>
+            <div style="padding: 20px;">            
+              <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Âge</label>
+                  <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Sexe</label>
+                  <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Douleur thoracique</label>
+                  <p-select formControlName="chestPainType" [options]="chestPainOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Tension repos (mmHg)</label>
+                  <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Cholestérol (mg/dl)</label>
+                  <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Glycémie à jeun > 120</label>
+                  <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">ECG au repos</label>
+                  <p-select formControlName="restingECG" [options]="ecgOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">FC max (bpm)</label>
+                  <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Angine à l'effort</label>
+                  <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Dépression ST (oldpeak)</label>
+                  <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Pente ST (slope)</label>
+                  <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group">
+                  <label class="doc-form-label">Vaisseaux colorés</label>
+                  <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" styleClass="w-full" />
+                </div>
+                <div class="doc-form-group" style="grid-column: span 2;">
+                  <label class="doc-form-label">Thalassémie</label>
+                  <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
+                </div>
+              </form>
+            <div class="doc-pred-submit-row">
+            <button type="button" class="doc-btn-primary doc-pred-submit-btn"
+              (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
+              @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse en cours... }
+              @else { <i class="pi pi-chart-line"></i> Lancer la prédiction }
+            </button>
+            </div>
+            </div>
+          </div>
+
+          <div class="doc-card doc-prediction-result-card">
+            <div class="doc-card-header">
+              <h2 class="doc-card-title">Résultat IA</h2>
+            </div>
+            @if (!predictionResult()) {
+              <div class="doc-pred-heart-display">
+                <svg class="doc-pred-heart-svg" [class.is-predicting]="predicting()" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
+                  <path class="heart-path" d="M50 85 L10 45 A25 25 0 0 1 50 20 A25 25 0 0 1 90 45 Z"/>
+                </svg>
+                <p class="doc-pred-idle-text">Remplissez les paramètres et lancez l'analyse pour voir le résultat ici.</p>
+              </div>
+            } @else {
+              <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 1" [class.low]="predictionResult()?.prediction === 0">
+                <svg class="doc-pred-heart-result" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
+                  <path class="heart-path" d="M50 85 L10 45 A25 25 0 0 1 50 20 A25 25 0 0 1 90 45 Z"/>
+                </svg>
+                <div class="doc-pred-result-label">{{ riskText(predictionResult()!) }}</div>
+                <div class="doc-pred-result-prob">
+                  <strong>{{ predictionResult()?.probability | percent:'1.0-1' }}</strong>
+                  Probabilité estimée
+                </div>
+              </div>
+            }
           </div>
         </div>
       }
-
     </section>
   </main>
 </div>
@@ -698,14 +721,6 @@
           styleClass="w-full" />
       </div>
 
-      <!-- Durée -->
-      <div class="doc-form-group">
-        <label class="doc-form-label">Durée *</label>
-        <p-select formControlName="durationMinutes"
-          [options]="durationOptions" optionLabel="label" optionValue="value"
-          styleClass="w-full" />
-      </div>
-
     </form>
   </div>
   <ng-template pTemplate="footer">
@@ -745,7 +760,7 @@
 
       <div class="doc-form-group">
         <label class="doc-form-label" for="add-dob">Date de naissance *</label>
-        <input id="add-dob" type="date" pInputText formControlName="dateOfBirth" class="doc-form-input" />
+        <input id="add-dob" type="date" pInputText formControlName="dateOfBirth" class="doc-form-input" (change)="onDobChange($event)" />
       </div>
 
       <div class="doc-form-group">
@@ -764,7 +779,7 @@
         />
       </div>
 
-      <div class="doc-form-group">
+      <div class="doc-form-group doc-age-auto">
         <label class="doc-form-label" for="add-age">Âge *</label>
         <p-inputnumber
           id="add-age"
@@ -772,6 +787,7 @@
           [min]="0"
           [max]="120"
           styleClass="w-full"
+          [readonly]="true"
         />
       </div>
     </form>
@@ -935,6 +951,7 @@
   header="Reprogrammer le rendez-vous"
   styleClass="doc-dialog"
   [style]="{ width: '34rem' }"
+  [contentStyle]="{ 'overflow': 'visible' }"
 >
   <div class="doc-dialog-body">
     @if (rescheduleTarget()) {
@@ -966,7 +983,8 @@
         } @else {
           <p-select formControlName="selectedSlot"
             [options]="rescheduleSlotOptions()" optionLabel="label" optionValue="value"
-            placeholder="Choisir un créneau" styleClass="w-full" />
+            placeholder="Choisir un créneau" styleClass="w-full" 
+            appendTo="body"/>
         }
       </div>
     </form>
@@ -979,6 +997,33 @@
       @else { <i class="pi pi-calendar-clock"></i> Confirmer }
     </button>
   </ng-template>
+</p-dialog>
+
+<p-dialog [(visible)]="profileModalVisible" [modal]="true" [draggable]="false"
+  [resizable]="false" styleClass="doc-dialog" [style]="{ width: '26rem' }">
+  <div class="doc-profile-modal-header">
+    <div class="doc-profile-avatar-xl">{{ doctorInitials() }}</div>
+    <p class="doc-profile-name">Dr {{ doctorName() }}</p>
+    <span class="doc-profile-role-chip"><i class="pi pi-heart-fill"></i> Médecin</span>
+  </div>
+  <div class="doc-profile-fields">
+    <div class="doc-profile-field">
+      <label>Prénom</label>
+      <span class="value"><i class="pi pi-user"></i>{{ currentUser()?.firstName }}</span>
+    </div>
+    <div class="doc-profile-field">
+      <label>Nom</label>
+      <span class="value"><i class="pi pi-user"></i>{{ currentUser()?.lastName }}</span>
+    </div>
+    <div class="doc-profile-field">
+      <label>Email</label>
+      <span class="value"><i class="pi pi-envelope"></i>{{ currentUser()?.email }}</span>
+    </div>
+    <div class="doc-profile-field">
+      <label>N° RPPS</label>
+      <span class="value"><i class="pi pi-id-card"></i>{{ currentUser()?.numeroRPPS || '—' }}</span>
+    </div>
+  </div>
 </p-dialog>
 
 <p-confirmDialog />

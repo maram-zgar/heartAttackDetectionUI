@@ -47,9 +47,11 @@
         <i class="pi pi-cog adm-nav-icon" [class.spinning]="settingsPanelOpen()"></i>
         @if (!sidebarCollapsed()) { <span>Paramètres</span> }
       </button>
-      <button
-        class="adm-nav-item danger"
-        routerLink="/auth/authenticate"
+      <button 
+        type="button" 
+        class="doc-nav-item" 
+        style="color: var(--doc-rose);"
+        (click)="logout()"
         [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''"
         tooltipPosition="right"
       >

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, combineLatest, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DTOs — mirror the backend Java records
@@ -20,7 +20,6 @@ export interface DoctorAvailabilityRequest {
    * Optional — backend defaults to 30 min when omitted.
    * Doctors no longer set this during availability setup.
    */
-  slotDurationMinutes?: number;
 }
 
 export interface DoctorAvailabilityResponse {
@@ -29,7 +28,6 @@ export interface DoctorAvailabilityResponse {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
-  slotDurationMinutes: number;
 }
 
 export interface AvailableSlotsResponse {
@@ -47,34 +45,31 @@ export interface AppointmentResponse {
   /** ISO datetime string */
   dateTime: string;
   status: 'PENDING' | 'CONFIRMED' | 'RESCHEDULED' | 'CANCELLED' | 'COMPLETED';
-  /** Populated from the request payload or a backend join */
   patientFirstName?: string;
   patientLastName?:  string;
   patientEmail?:     string;
   appointmentType?:  AppointmentType;
-  durationMinutes?:  number;
 }
 
 export type AppointmentType = 'CONSULTATION' | 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP';
 
 export interface AppointmentRequest {
-  patientId: string;
-  doctorId: string;
+  patientId:         string;
+  doctorId:          string;
   /** ISO datetime string e.g. '2025-06-16T09:00:00' */
-  dateTime: string;
-  patientEmail: string;
-  patientFirstName: string;
-  /** Set by doctor when creating the appointment */
-  appointmentType?: AppointmentType;
-  durationMinutes?: number;
+  dateTime:          string;
+  patientEmail:      string;
+  patientFirstName:  string;
+  appointmentType?:  AppointmentType;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  View-model types used by the timetable components
+//  View-model types — used by the timetable components
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Represents one time-slot cell in the timetable grid.
+ * One time-slot cell in the timetable grid.
+ * `state` drives the CSS class and interactivity of the cell.
  */
 export interface TimetableSlot {
   /** ISO datetime string — unique key for this slot */
@@ -84,367 +79,369 @@ export interface TimetableSlot {
   /** 'HH:mm' */
   time: string;
   /**
-   * 'available'  — doctor works this slot, no booking yet
-   * 'pending'    — a PENDING appointment exists
-   * 'confirmed'  — slot is locked (CONFIRMED appointment)
-   * 'completed'  — past completed appointment
-   * 'blocked'    — outside doctor's working hours for that day
-   * 'cancelled'  — slot was cancelled (shows as available again in patient view)
+   * available  — doctor works this slot, no booking
+   * pending    — PENDING appointment (patient waiting for confirmation)
+   * confirmed  — CONFIRMED appointment (slot locked)
+   * completed  — past completed appointment
+   * cancelled  — cancelled (shown as available again)
+   * blocked    — outside doctor's working hours
    */
   state: 'available' | 'pending' | 'confirmed' | 'completed' | 'blocked' | 'cancelled';
-  /** Appointment linked to this slot (doctor view only) */
+  /** Full appointment object — doctor view only, never exposed to patient. */
   appointment?: AppointmentResponse;
 }
 
-/**
- * One column in the timetable = one calendar day.
- */
+/** One column in the timetable grid = one calendar day. */
 export interface TimetableDay {
   /** 'YYYY-MM-DD' */
   date: string;
   /** Human-readable: 'Lun 16 juin' */
   label: string;
   dayOfWeek: DayOfWeek;
-  /** True if doctor has a working schedule for this day */
+  /** True if the doctor has a schedule configured for this day. */
   isWorkDay: boolean;
   slots: TimetableSlot[];
 }
 
-/** Describes the view window */
+/** The display window the user has selected. */
 export type TimetableRange = '1week' | '1month' | '3months';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Service
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * AvailabilityTimetableService
+ *
+ * Responsible for:
+ *  1. CRUD on doctor availability (which days + hours the doctor works).
+ *  2. Fetching available slots for a given date (patient-facing).
+ *  3. Building the full TimetableDay[] view model consumed by both the
+ *     doctor timetable component and the patient booking component.
+ *
+ * All URLs are relative — proxy.conf.json forwards /api/** to :8080.
+ */
 @Injectable({ providedIn: 'root' })
 export class AvailabilityTimetableService {
 
   private readonly http = inject(HttpClient);
 
-  // ── Base URLs ──────────────────────────────────────────────────────────────
+  private readonly appointmentsBase = 'http://localhost:8080/api/v1/appointments';
 
   private doctorAvailabilityUrl(doctorId: string): string {
     return `http://localhost:8080/api/v1/doctors/${doctorId}/availability`;
   }
 
-  private readonly appointmentsUrl = 'http://localhost:8080/api/v1/appointments';
-  // ── Availability CRUD ──────────────────────────────────────────────────────
+  // ── Availability CRUD ─────────────────────────────────────────────────────
 
   /**
-   * Upsert (create or replace) the availability for a specific day.
-   * Backend: POST /api/v1/doctors/{doctorId}/availability
+   * Upsert the availability for a specific day of week.
+   * POST /api/v1/doctors/{doctorId}/availability
    */
-  setAvailability(doctorId: string, request: DoctorAvailabilityRequest): Observable<DoctorAvailabilityResponse> {
+  setAvailability(
+    doctorId: string,
+    request: DoctorAvailabilityRequest,
+  ): Observable<DoctorAvailabilityResponse> {
     return this.http.post<DoctorAvailabilityResponse>(
       this.doctorAvailabilityUrl(doctorId),
-      request
+      request,
     );
   }
 
   /**
-   * Fetch all availability entries for a doctor (all days they work).
-   * Backend: GET /api/v1/doctors/{doctorId}/availability
+   * Fetch all availability entries for a doctor.
+   * GET /api/v1/doctors/{doctorId}/availability
    */
   getAvailability(doctorId: string): Observable<DoctorAvailabilityResponse[]> {
     return this.http.get<DoctorAvailabilityResponse[]>(
-      this.doctorAvailabilityUrl(doctorId)
+      this.doctorAvailabilityUrl(doctorId),
     );
   }
 
   /**
-   * Remove a doctor's availability for one specific day of week.
-   * Backend: DELETE /api/v1/doctors/{doctorId}/availability/day?day=MONDAY
+   * Remove availability for one day of week.
+   * DELETE /api/v1/doctors/{doctorId}/availability/day?day=MONDAY
    */
   deleteAvailability(doctorId: string, day: DayOfWeek): Observable<void> {
     const params = new HttpParams().set('day', day);
     return this.http.delete<void>(
       `${this.doctorAvailabilityUrl(doctorId)}/day`,
-      { params }
+      { params },
     );
   }
 
-  // ── Available slots ────────────────────────────────────────────────────────
+  // ── Available slots ───────────────────────────────────────────────────────
 
   /**
-   * Fetch available (not-yet-confirmed) slots for one specific date.
-   * Backend: GET /api/v1/appointments/available-slots?doctorId=X&date=YYYY-MM-DD
+   * Returns available (not-yet-confirmed) slots for one specific date.
+   * GET /api/v1/appointments/available-slots?doctorId=X&date=YYYY-MM-DD
    */
   getAvailableSlots(doctorId: string, date: string): Observable<AvailableSlotsResponse> {
     const params = new HttpParams()
       .set('doctorId', doctorId)
       .set('date', date);
     return this.http.get<AvailableSlotsResponse>(
-      `${this.appointmentsUrl}/available-slots`,
-      { params }
+      `http://localhost:8080/api/v1/appointments/available-slots`,
+      { params },
     );
   }
 
-  // ── Appointments ──────────────────────────────────────────────────────────
+  // ── Appointment actions ───────────────────────────────────────────────────
 
-  /**
-   * Create a new appointment (patient books a slot).
-   * Backend: POST /api/v1/appointments
-   */
+  /** POST /api/v1/appointments */
   createAppointment(request: AppointmentRequest): Observable<AppointmentResponse> {
-    return this.http.post<AppointmentResponse>(this.appointmentsUrl, request);
+    return this.http.post<AppointmentResponse>(`http://localhost:8080/api/v1/appointments`, request);
   }
 
-  /**
-   * Confirm an appointment (doctor action).
-   * Backend: PATCH /api/v1/appointments/{id}/confirm
-   */
-  confirmAppointment(id: string, request: AppointmentRequest): Observable<AppointmentResponse> {
+  /** PATCH /api/v1/appointments/{id}/confirm */
+  confirmAppointment(
+    id: string,
+    request: AppointmentRequest,
+  ): Observable<AppointmentResponse> {
     return this.http.patch<AppointmentResponse>(
-      `${this.appointmentsUrl}/${id}/confirm`,
-      request
+      `http://localhost:8080/api/v1/appointments/${id}/confirm`,
+      request,
     );
   }
 
-  /**
-   * Cancel an appointment.
-   * Backend: PATCH /api/v1/appointments/{id}/cancel
-   */
-  cancelAppointment(id: string, request: AppointmentRequest): Observable<AppointmentResponse> {
+  /** PATCH /api/v1/appointments/{id}/cancel */
+  cancelAppointment(
+    id: string,
+    request: AppointmentRequest,
+  ): Observable<AppointmentResponse> {
     return this.http.patch<AppointmentResponse>(
-      `${this.appointmentsUrl}/${id}/cancel`,
-      request
+      `http://localhost:8080/api/v1/appointments/${id}/cancel`,
+      request,
     );
   }
 
-  /**
-   * Reschedule an existing appointment.
-   * Backend: PUT /api/v1/appointments/{id}/reschedule
-   */
-  rescheduleAppointment(id: string, request: AppointmentRequest): Observable<AppointmentResponse> {
+  /** PUT /api/v1/appointments/{id}/reschedule */
+  rescheduleAppointment(
+    id: string,
+    request: AppointmentRequest,
+  ): Observable<AppointmentResponse> {
     return this.http.put<AppointmentResponse>(
-      `${this.appointmentsUrl}/${id}/reschedule`,
-      request
+      `http://localhost:8080/api/v1/appointments/${id}/reschedule`,
+      request,
     );
   }
 
-  // ── Timetable builder ─────────────────────────────────────────────────────
+  // ── Timetable builders ────────────────────────────────────────────────────
 
   /**
-   * Builds the complete timetable view model for a date window.
+   * Doctor view: builds the complete timetable for a date window.
    *
    * Strategy:
-   * 1. Fetch the doctor's weekly availability (which days + hours).
-   * 2. Fetch all existing appointments (doctor view) or available slots per day (patient view).
-   * 3. Generate every possible slot for every day in the window.
-   * 4. Colour each slot based on appointment status.
+   *  1. Fetch the doctor's weekly availability (days + hours).
+   *  2. Use the pre-fetched `appointments` array passed from the doctor state service.
+   *  3. Generate every slot and colour it by appointment status.
    *
-   * @param doctorId     UUID of the doctor
-   * @param startDate    First date of the window
-   * @param range        '1week' | '1month' | '3months'
-   * @param appointments Pre-fetched appointments array (doctor has them; for patient we pass [])
-   * @param doctorViewMode  true = show appointment details; false = patient view (no patient data)
+   * @param doctorId     UUID of the doctor whose timetable to build.
+   * @param startDate    First date of the window.
+   * @param range        '1week' | '1month' | '3months'.
+   * @param appointments Pre-fetched appointment list from DoctorStateService.
+   * @param doctorViewMode  true = attach appointment details to slots.
    */
   buildTimetable(
     doctorId: string,
     startDate: Date,
     range: TimetableRange,
     appointments: AppointmentResponse[],
-    doctorViewMode: boolean
+    doctorViewMode: boolean,
   ): Observable<TimetableDay[]> {
-
     const dates = this.generateDateWindow(startDate, range);
 
     return this.getAvailability(doctorId).pipe(
       map(availabilities => {
         const availMap = new Map<DayOfWeek, DoctorAvailabilityResponse>(
-          availabilities.map(a => [a.dayOfWeek, a])
+          availabilities.map(a => [a.dayOfWeek, a]),
         );
-
-        return dates.map(date => this.buildDay(date, availMap, appointments, doctorViewMode));
-      })
+        return dates.map(date =>
+          this.buildDay(date, availMap, appointments, doctorViewMode),
+        );
+      }),
     );
   }
 
   /**
-   * Patient view: fetches available slots from the backend for each date in
-   * the window and merges with availability to build the timetable.
-   * Patient never sees other patients' data — only slot colours.
+   * Patient view: fetches available slots per work-day and builds the timetable.
+   * Patients never see other patients' data — only green/red slot colours.
+   *
+   * @param doctorId    UUID of the assigned doctor.
+   * @param startDate   First date of the window.
+   * @param range       '1week' | '1month' | '3months'.
    */
   buildPatientTimetable(
     doctorId: string,
     startDate: Date,
-    range: TimetableRange
+    range: TimetableRange,
   ): Observable<TimetableDay[]> {
     const dates = this.generateDateWindow(startDate, range);
 
     return this.getAvailability(doctorId).pipe(
       switchMap(availabilities => {
         const availMap = new Map<DayOfWeek, DoctorAvailabilityResponse>(
-          availabilities.map(a => [a.dayOfWeek, a])
+          availabilities.map(a => [a.dayOfWeek, a]),
         );
 
-        // Fetch available slots for each work-day in the window
-        const workDays = dates.filter(d => {
-          const dow = this.toDayOfWeek(d);
-          return availMap.has(dow);
-        });
+        const workDays = dates.filter(d => availMap.has(this.toDayOfWeek(d)));
 
         if (workDays.length === 0) {
-          return of(dates.map(date =>
-            this.buildDay(date, availMap, [], false)
-          ));
+          return of(dates.map(date => this.buildDay(date, availMap, [], false)));
         }
 
         const slotRequests = workDays.map(d =>
-          this.getAvailableSlots(doctorId, this.toDateStr(d))
+          this.getAvailableSlots(doctorId, this.toDateStr(d)),
         );
 
         return forkJoin(slotRequests).pipe(
           map(slotResponses => {
-            // Build a set of available slot ISO strings
+            // Set of ISO datetime strings the backend considers available (not confirmed)
             const availableSet = new Set<string>(
-              slotResponses.flatMap(r => r.slots)
+              slotResponses.flatMap(r => r.slots),
             );
 
             return dates.map(date => {
-              const dow = this.toDayOfWeek(date);
+              const dow   = this.toDayOfWeek(date);
               const avail = availMap.get(dow);
 
               if (!avail) {
                 return {
-                  date: this.toDateStr(date),
-                  label: this.formatDayLabel(date),
-                  dayOfWeek: dow,
-                  isWorkDay: false,
-                  slots: []
+                  date:       this.toDateStr(date),
+                  label:      this.formatDayLabel(date),
+                  dayOfWeek:  dow,
+                  isWorkDay:  false,
+                  slots:      [],
                 } as TimetableDay;
               }
 
               const allSlots = this.generateSlots(date, avail);
-
-              const slots: TimetableSlot[] = allSlots.map(slotDt => {
-                const isAvailable = availableSet.has(slotDt);
-                return {
-                  dateTime: slotDt,
-                  date: this.toDateStr(date),
-                  time: slotDt.substring(11, 16),
-                  // If not in available set → it's booked/confirmed (show as blocked for patient)
-                  state: isAvailable ? 'available' : 'confirmed',
-                  appointment: undefined // never exposed to patient
-                };
-              });
+              const slots: TimetableSlot[] = allSlots.map(slotDt => ({
+                dateTime:    slotDt,
+                date:        this.toDateStr(date),
+                time:        slotDt.substring(11, 16),
+                // Not in available set → already booked (show as taken to patient)
+                state:       availableSet.has(slotDt) ? 'available' : 'confirmed',
+                appointment: undefined, // never expose appointment details to patient
+              }));
 
               return {
-                date: this.toDateStr(date),
-                label: this.formatDayLabel(date),
+                date:      this.toDateStr(date),
+                label:     this.formatDayLabel(date),
                 dayOfWeek: dow,
                 isWorkDay: true,
-                slots
+                slots,
               } as TimetableDay;
             });
-          })
+          }),
         );
-      })
+      }),
     );
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  // ── Private helpers ───────────────────────────────────────────────────────
 
   private buildDay(
     date: Date,
     availMap: Map<DayOfWeek, DoctorAvailabilityResponse>,
     appointments: AppointmentResponse[],
-    doctorViewMode: boolean
+    doctorViewMode: boolean,
   ): TimetableDay {
-    const dow = this.toDayOfWeek(date);
-    const avail = availMap.get(dow);
+    const dow     = this.toDayOfWeek(date);
+    const avail   = availMap.get(dow);
     const dateStr = this.toDateStr(date);
 
     if (!avail) {
       return {
-        date: dateStr,
-        label: this.formatDayLabel(date),
-        dayOfWeek: dow,
-        isWorkDay: false,
-        slots: []
+        date: dateStr, label: this.formatDayLabel(date),
+        dayOfWeek: dow, isWorkDay: false, slots: [],
       };
     }
 
     const allSlotDateTimes = this.generateSlots(date, avail);
 
-    // Index appointments by their ISO dateTime
+    // Index appointments by normalised ISO datetime key ('YYYY-MM-DDTHH:mm:00')
     const apptByDateTime = new Map<string, AppointmentResponse>();
     appointments
       .filter(a => a.dateTime.startsWith(dateStr))
       .forEach(a => {
-        // Normalize to 'YYYY-MM-DDTHH:mm:00' for reliable matching
         const key = a.dateTime.substring(0, 16) + ':00';
         apptByDateTime.set(key, a);
       });
 
     const slots: TimetableSlot[] = allSlotDateTimes.map(slotDt => {
       const appt = apptByDateTime.get(slotDt);
-
       let state: TimetableSlot['state'] = 'available';
       if (appt) {
         switch (appt.status) {
           case 'CONFIRMED':   state = 'confirmed';  break;
           case 'PENDING':     state = 'pending';    break;
           case 'COMPLETED':   state = 'completed';  break;
-          case 'CANCELLED':   state = 'available';  break; // treat as free again
+          case 'CANCELLED':   state = 'available';  break; // freed slot
           case 'RESCHEDULED': state = 'pending';    break;
         }
       }
-
       return {
-        dateTime: slotDt,
-        date: dateStr,
-        time: slotDt.substring(11, 16),
+        dateTime:    slotDt,
+        date:        dateStr,
+        time:        slotDt.substring(11, 16),
         state,
-        appointment: doctorViewMode ? appt : undefined
+        appointment: doctorViewMode ? appt : undefined,
       };
     });
 
     return {
-      date: dateStr,
-      label: this.formatDayLabel(date),
-      dayOfWeek: dow,
-      isWorkDay: true,
-      slots
+      date: dateStr, label: this.formatDayLabel(date),
+      dayOfWeek: dow, isWorkDay: true, slots,
     };
   }
 
   /**
-   * Generates all slot ISO datetime strings for a given day and availability.
-   * e.g. ['2025-06-16T08:00:00', '2025-06-16T08:30:00', ...]
+   * Generates all slot ISO datetime strings for a given day/availability.
+   * e.g. ['2025-06-16T08:00:00', '2025-06-16T08:30:00', …]
    */
   private generateSlots(date: Date, avail: DoctorAvailabilityResponse): string[] {
     const slots: string[] = [];
     const dateStr = this.toDateStr(date);
+    const SLOT_DURATION = 30; // always 30 min
 
-    const [startH, startM] = avail.startTime.split(':').map(Number);
-    const [endH, endM]     = avail.endTime.split(':').map(Number);
+    const [startH, startM] = this.parseTime(avail.startTime);
+    const [endH, endM]     = this.parseTime(avail.endTime);
 
-    let h = startH, m = startM;
-    const endTotalMin = endH * 60 + endM;
+    const startTotalMin = startH * 60 + startM;
+    const endTotalMin   = endH   * 60 + endM;
 
-    const slotDur = avail.slotDurationMinutes ?? 30;
+    if (startTotalMin >= endTotalMin) {
+      return [];
+    }
+
+    let h = startH;
+    let m = startM;
+
     while (h * 60 + m < endTotalMin) {
-      const hStr = String(h).padStart(2, '0');
-      const mStr = String(m).padStart(2, '0');
-      slots.push(`${dateStr}T${hStr}:${mStr}:00`);
-
-      m += slotDur;
+      slots.push(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+      m += SLOT_DURATION;
       h += Math.floor(m / 60);
-      m = m % 60;
+      m  = m % 60;
     }
 
     return slots;
   }
+  private parseTime(t: any): [number, number] {
+    if (Array.isArray(t)) {
+      return [Number(t[0]) || 0, Number(t[1]) || 0];
+    }
+    if (typeof t === 'string') {
+      const parts = t.split(':').map(Number);
+      return [parts[0] || 0, parts[1] || 0];
+    }
+    return [0, 0];
+  }
 
-  /**
-   * Generates an array of Date objects for the given range starting from startDate.
-   */
+  /** Generates an array of Date objects for the given window. */
   generateDateWindow(startDate: Date, range: TimetableRange): Date[] {
-    const dates: Date[] = [];
-    const days = range === '1week' ? 7 : range === '1month' ? 30 : 90;
-
+    const days  = range === '1week' ? 7 : range === '1month' ? 30 : 90;
+    const dates = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
@@ -453,7 +450,7 @@ export class AvailabilityTimetableService {
     return dates;
   }
 
-  /** Returns the ISO 'YYYY-MM-DD' string for a Date */
+  /** Returns 'YYYY-MM-DD' string for a Date. */
   toDateStr(date: Date): string {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -461,25 +458,22 @@ export class AvailabilityTimetableService {
     return `${y}-${m}-${d}`;
   }
 
-  /** Maps a JS Date to DayOfWeek enum value */
+  /** Maps a JS Date to its DayOfWeek enum value. */
   toDayOfWeek(date: Date): DayOfWeek {
     const days: DayOfWeek[] = [
-      'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY',
-      'THURSDAY', 'FRIDAY', 'SATURDAY'
+      'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY',
     ];
     return days[date.getDay()];
   }
 
-  /** French day label e.g. 'Lun 16 juin' */
+  /** French short day label: 'lun. 16 juin' */
   formatDayLabel(date: Date): string {
     return date.toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
+      weekday: 'short', day: 'numeric', month: 'short',
     });
   }
 
-  /** Week number in year (ISO-ish) */
+  /** ISO week number (ISO 8601). */
   getWeekNumber(date: Date): number {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));

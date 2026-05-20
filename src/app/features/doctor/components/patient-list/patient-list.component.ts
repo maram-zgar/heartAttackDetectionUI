@@ -158,7 +158,7 @@ import { DoctorApiService } from '../../services/doctor-api.service';
       background: var(--card-bg, #fff);
       border: 1px solid var(--card-border, #e5e7eb);
       border-radius: 12px;
-      overflow: hidden;
+      overflow: visible;
     }
 
     .list-toolbar {

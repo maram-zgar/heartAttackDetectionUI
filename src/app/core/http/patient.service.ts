@@ -1,6 +1,5 @@
-import { Injectable, inject, PLATFORM_ID } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { isPlatformBrowser } from '@angular/common';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface PatientProfile {
@@ -11,6 +10,7 @@ export interface PatientProfile {
   age?: number;
   dateOfBirth?: string;
   gender?: string;
+  /** UUID of the doctor assigned to this patient (may be absent) */
   doctorId?: string;
 }
 
@@ -19,33 +19,33 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+/**
+ * PatientService — HTTP wrapper for patient-facing profile endpoints.
+ * Relative URLs so the Angular proxy forwards /api/** to the gateway on :8080.
+ * Auth header is injected automatically by auth.interceptor.ts — no manual
+ * header construction needed here.
+ */
 @Injectable({ providedIn: 'root' })
 export class PatientService {
-  private readonly http       = inject(HttpClient);
-  private readonly platformId = inject(PLATFORM_ID);
-  private readonly baseUrl    = 'http://localhost:8080/api/v1';
-
-  private getAuthHeaders(): { headers: HttpHeaders } {
-    const token = isPlatformBrowser(this.platformId)
-      ? localStorage.getItem('access_token') : null;
-    return { headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }) };
-  }
+  private readonly http = inject(HttpClient);
+  private readonly base = 'http://localhost:8080/api/v1';
 
   getProfile(id: string): Observable<PatientProfile> {
-    return this.http.get<PatientProfile>(`${this.baseUrl}/patients/${id}`, this.getAuthHeaders());
+    return this.http.get<PatientProfile>(`${this.base}/patients/${id}`);
   }
 
   updateProfile(id: string, data: Partial<PatientProfile>): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/patients/${id}`, data, this.getAuthHeaders());
+    return this.http.put<void>(`${this.base}/patients/${id}`, data);
   }
 
+  /** Uses the shared gateway auth endpoint — same for doctors and patients. */
   changePassword(data: ChangePasswordRequest): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/auth/change-password`, data, this.getAuthHeaders());
+    return this.http.post<void>(`${this.base}/auth/change-password`, data);
   }
 
   getAssignedDoctor(doctorId: string): Observable<{ firstName: string; lastName: string }> {
     return this.http.get<{ firstName: string; lastName: string }>(
-      `${this.baseUrl}/doctors/${doctorId}`, this.getAuthHeaders()
+      `${this.base}/doctors/${doctorId}`
     );
   }
 }

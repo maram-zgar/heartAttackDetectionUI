@@ -15,6 +15,7 @@ import { ToastModule }       from 'primeng/toast';
 import { TagModule }         from 'primeng/tag';
 import { MessageService }    from 'primeng/api';
 import { Skeleton }          from 'primeng/skeleton';
+import { Output, EventEmitter } from '@angular/core';
 
 import {
   AvailabilityTimetableService,
@@ -64,6 +65,7 @@ export class DoctorTimetableComponent implements OnInit, OnDestroy {
 
   @Input() doctorId!: string;
   @Input() appointments: any[] = [];
+  @Output() slotSelected = new EventEmitter<string>();
 
   private readonly svc     = inject(AvailabilityTimetableService);
   private readonly msg     = inject(MessageService);
@@ -223,6 +225,11 @@ export class DoctorTimetableComponent implements OnInit, OnDestroy {
     this.slotDialogVisible = true;
   }
 
+  onEmptySlotClick(dateTime: string): void {
+    this.slotSelected.emit(dateTime);
+  }
+
+
   confirmSlot(): void {
     const slot = this.selectedSlot();
     if (!slot?.appointment) return;
@@ -279,12 +286,30 @@ export class DoctorTimetableComponent implements OnInit, OnDestroy {
     return day.slots.find(s => s.time === time);
   }
 
+  rescheduleSlot(): void {
+    const slot = this.selectedSlot();
+    if (!slot?.appointment) return;
+    this.slotDialogVisible = false;
+    this.slotSelected.emit('reschedule:' + slot.appointment.id);
+  }
+
+  bookSlot(): void {
+    const slot = this.selectedSlot();
+    if (!slot) return;
+    this.slotDialogVisible = false;
+    this.slotSelected.emit(this.buildDateTime(slot.date, slot.time));
+  }
+
   isToday(dateStr: string): boolean {
     return dateStr === this.svc.toDateStr(new Date());
   }
 
   countDayAppointments(day: TimetableDay): number {
     return day.slots.filter(s => s.state === 'confirmed' || s.state === 'pending').length;
+  }
+
+  buildDateTime(dateStr: string, time: string): string {
+    return `${dateStr}T${time}:00`;
   }
 
   /**

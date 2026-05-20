@@ -16,5 +16,9 @@ export class PatientApiService {
     return this.http.put<void>(`${this.baseUrl}/${id}`, data);
   }
 
-  // Add more patient-specific endpoints as needed
+  getAssignedDoctor(doctorId: string): Observable<{ firstName: string; lastName: string }> {
+    return this.http.get<{ firstName: string; lastName: string }>(
+      `http://localhost:8080/api/v1/doctors/${doctorId}`
+    );
+  }
 }

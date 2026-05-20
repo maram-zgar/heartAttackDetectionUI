@@ -216,6 +216,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.activeNav.set(id);
   }
 
+  logout(): void {
+    // Clear tokens and redirect
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = '/authenticate';
+  }
+
   // ── Data loading ───────────────────────────────────────────────────────────
 
   /**

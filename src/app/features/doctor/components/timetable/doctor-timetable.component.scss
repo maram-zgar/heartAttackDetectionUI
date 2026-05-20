@@ -27,6 +27,15 @@
   &.today .tt-day-name { color: var(--tt-emerald); font-weight: 700; }
 }
 
+.tt-cell--clickable {
+  cursor: pointer;
+  &:hover {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+    .pi-plus { opacity: 0.7 !important; }
+  }
+}
+
 .tt-day-name    { font-size: .78125rem; color: var(--tt-text); }
 .tt-day-off     { font-size: .6875rem; color: var(--tt-text-muted); }
 .tt-day-appt-count {
