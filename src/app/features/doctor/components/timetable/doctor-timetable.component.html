@@ -138,7 +138,12 @@
                   </div>
                 }
               } @else {
-                <div class="tt-cell tt-cell--empty"></div>
+                <div class="tt-cell tt-cell--empty tt-cell--clickable"
+                    (click)="onEmptySlotClick(buildDateTime(day.date, timeRow))"
+                    pTooltip="Créer un rendez-vous"
+                    tooltipPosition="top">
+                  <i class="pi pi-plus" style="opacity: 0.3; font-size: 0.65rem;"></i>
+                </div>
               }
             }
           }
@@ -229,7 +234,7 @@
         <div class="tt-appt-detail-card">
           <div class="tt-appt-patient">
             <i class="pi pi-user"></i>
-            <strong>{{ slotPatientName(selectedSlot()!) }}</strong>
+            <strong>{{ slotPatientName(selectedSlot()!) || (selectedSlot()!.appointment!.patientFirstName + ' ' + (selectedSlot()!.appointment!.patientLastName ?? '')) }}</strong>
           </div>
           <div class="tt-appt-status">
             <i class="pi pi-info-circle"></i>
@@ -243,6 +248,9 @@
             <button type="button" class="tt-btn-confirm" (click)="confirmSlot()">
               <i class="pi pi-check"></i> Confirmer
             </button>
+            <button type="button" class="tt-btn-cancel" (click)="rescheduleSlot()">
+              <i class="pi pi-calendar-clock"></i> Reprogrammer
+            </button>
             <button type="button" class="tt-btn-cancel" (click)="cancelSlot()">
               <i class="pi pi-times"></i> Annuler
             </button>
@@ -251,6 +259,9 @@
 
         @if (selectedSlot()!.appointment!.status === 'CONFIRMED') {
           <div class="tt-slot-actions">
+            <button type="button" class="tt-btn-cancel" (click)="rescheduleSlot()">
+              <i class="pi pi-calendar-clock"></i> Reprogrammer
+            </button>
             <button type="button" class="tt-btn-cancel" (click)="cancelSlot()">
               <i class="pi pi-times"></i> Annuler le RDV
             </button>
@@ -261,6 +272,11 @@
         <div class="tt-slot-free-msg">
           <i class="pi pi-check-circle"></i>
           <span>Ce créneau est libre — aucun rendez-vous.</span>
+        </div>
+        <div class="tt-slot-actions">
+          <button type="button" class="tt-btn-confirm" (click)="bookSlot()">
+            <i class="pi pi-calendar-plus"></i> Créer un rendez-vous
+          </button>
         </div>
       }
 

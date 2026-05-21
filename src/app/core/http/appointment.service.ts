@@ -5,80 +5,82 @@ import {
   Appointment,
   AppointmentRequest,
   AvailableSlotsResponse,
-} from '../../shared/models/medical.model';
-import {
   DoctorAvailabilityRequest,
-  DoctorAvailabilityResponse
+  DoctorAvailabilityResponse,
 } from '../../shared/models/medical.model';
 
+/**
+ * AppointmentService — HTTP wrapper for all appointment endpoints.
+ * Uses relative URLs so the Angular proxy (proxy.conf.json) forwards
+ * /api/** to the gateway on :8080, avoiding CORS completely.
+ */
 @Injectable({ providedIn: 'root' })
 export class AppointmentService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8080/api/v1/appointments';
+  private readonly base = 'http://localhost:8080/api/v1/appointments';
 
   findAll(): Observable<Appointment[]> {
-    return this.http.get<Appointment[]>(this.baseUrl);
+    return this.http.get<Appointment[]>(this.base);
   }
 
   findById(id: string): Observable<Appointment> {
-    return this.http.get<Appointment>(`${this.baseUrl}/${id}`);
+    return this.http.get<Appointment>(`${this.base}/${id}`);
   }
 
   create(request: AppointmentRequest): Observable<Appointment> {
-    return this.http.post<Appointment>(this.baseUrl, request);
+    return this.http.post<Appointment>(this.base, request);
   }
 
   reschedule(id: string, request: AppointmentRequest): Observable<Appointment> {
-    return this.http.put<Appointment>(`${this.baseUrl}/${id}/reschedule`, request);
+    return this.http.put<Appointment>(`${this.base}/${id}/reschedule`, request);
   }
 
   confirm(id: string, request: Partial<AppointmentRequest>): Observable<Appointment> {
-    return this.http.patch<Appointment>(`${this.baseUrl}/${id}/confirm`, request);
+    return this.http.patch<Appointment>(`${this.base}/${id}/confirm`, request);
   }
 
   cancel(id: string, request: Partial<AppointmentRequest>): Observable<Appointment> {
-    return this.http.patch<Appointment>(`${this.baseUrl}/${id}/cancel`, request);
+    return this.http.patch<Appointment>(`${this.base}/${id}/cancel`, request);
   }
 
   complete(id: string, request: Partial<AppointmentRequest>): Observable<Appointment> {
-    return this.http.post<Appointment>(`${this.baseUrl}/${id}/complete`, request);
+    return this.http.post<Appointment>(`${this.base}/${id}/complete`, request);
   }
 
   getAvailableSlots(doctorId: string, date: string): Observable<AvailableSlotsResponse> {
-    const params = new HttpParams().set('doctorId', doctorId).set('date', date);
-    return this.http.get<AvailableSlotsResponse>(`${this.baseUrl}/available-slots`, { params });
+    const params = new HttpParams()
+      .set('doctorId', doctorId)
+      .set('date', date);
+    return this.http.get<AvailableSlotsResponse>(`${this.base}/available-slots`, { params });
   }
 
-  getDoctorAvailability(
-    doctorId: string
-  ): Observable<DoctorAvailabilityResponse[]> {
+  findByPatientId(patientId: string): Observable<Appointment[]> {
+    return this.http.get<Appointment[]>(`${this.base}/patient/${patientId}`);
+  }
 
+  // ── Doctor availability ───────────────────────────────────────────────────
+
+  getDoctorAvailability(doctorId: string): Observable<DoctorAvailabilityResponse[]> {
     return this.http.get<DoctorAvailabilityResponse[]>(
-      `/api/v1/doctors/${doctorId}/availability`
+      `http://localhost:8080/api/v1/doctors/${doctorId}/availability`
     );
   }
 
   setDoctorAvailability(
     doctorId: string,
-    request: DoctorAvailabilityRequest
+    request: DoctorAvailabilityRequest,
   ): Observable<DoctorAvailabilityResponse> {
-
     return this.http.post<DoctorAvailabilityResponse>(
-      `/api/v1/doctors/${doctorId}/availability`,
-      request
+      `http://localhost:8080/api/v1/doctors/${doctorId}/availability`,
+      request,
     );
   }
 
-  deleteDoctorAvailability(
-    doctorId: string,
-    day: string
-  ): Observable<void> {
-
+  deleteDoctorAvailability(doctorId: string, day: string): Observable<void> {
     const params = new HttpParams().set('day', day);
-
     return this.http.delete<void>(
-      `/api/v1/doctors/${doctorId}/availability`,
-      { params }
+      `http://localhost:8080/api/v1/doctors/${doctorId}/availability/day`,
+      { params },
     );
   }
 }

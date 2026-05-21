@@ -12,8 +12,8 @@ import {
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { Subject } from 'rxjs';
-import { takeUntil, catchError, finalize, filter } from 'rxjs/operators';
+import { forkJoin, Observable, Subject } from 'rxjs';
+import { takeUntil, catchError, finalize, filter, switchMap, map, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { TabsModule } from 'primeng/tabs';
@@ -69,6 +69,8 @@ import { SelectModule } from 'primeng/select';
 import { UserProfile } from '../../shared/models/user-profile.model';
 import { sign } from 'crypto';
 import { DoctorTimetableComponent } from './components/timetable/doctor-timetable.component';
+import { PatientService, PatientProfile } from '../../core/http/patient.service';
+import { DoctorApiService } from './services/doctor-api.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
@@ -95,7 +97,6 @@ interface AppointmentFormValue {
     CommonModule,
     ReactiveFormsModule,
     FormsModule,
-    RouterLink,
     ButtonModule,
     AvatarModule,
     BadgeModule,
@@ -122,8 +123,27 @@ interface AppointmentFormValue {
 })
 export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
+onTimetableSlotSelected(payload: string): void {
+  if (payload.startsWith('reschedule:')) {
+    const appointmentId = payload.replace('reschedule:', '');
+    const appt = this.appointments().find(a => String(a.id) === appointmentId);
+    if (appt) this.openRescheduleDialog(appt);
+    return;
+  }
+  // free slot → open booking dialog
+  this.availableSlots.set([payload]);
+  this.appointmentForm.reset({
+    patientId:       '',
+    date:            new Date(payload),
+    selectedSlot:    payload,
+    appointmentType: 'CONSULTATION',
+  });
+  this.appointmentDialogVisible.set(true);
+}
+
   // ── DI ────────────────────────────────────────────────────────────────────
   private readonly store = inject(Store);
+  private readonly user = this.store.selectSignal(selectCurrentUser);
   private readonly doctorService = inject(DoctorService);
   private readonly appointmentService = inject(AppointmentService);
   private readonly medicalFileService = inject(MedicalFileService);
@@ -134,7 +154,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly authService = inject(AuthService);
   @Inject(PLATFORM_ID) private platformId: object = inject(PLATFORM_ID);
+  private readonly patientService = inject(PatientService);
   private readonly destroy$ = new Subject<void>();
+  private readonly doctorApi = inject(DoctorApiService);
+  readonly predictionResult = signal<PredictionResult | null>(null);
+  profileModalVisible = signal(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Static select options
@@ -216,11 +240,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   readonly errorPatients     = signal<string | null>(null);
   readonly errorAppointments = signal<string | null>(null);
 
-  readonly predictionResult = signal<(PredictionResult & {
-    createdAt?: string;
-    payload?: PredictionPayload;
-  }) | null>(null);
-
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – UI
   // ─────────────────────────────────────────────────────────────────────────
@@ -269,15 +288,18 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   readonly doctorAppointments = computed(() => {
     const doctorId = this.currentUser()?.id;
-    return doctorId
-      ? this.appointments().filter(a => String(a.doctorId) === String(doctorId))
-      : this.appointments();
+    if (!doctorId) return this.appointments();
+    return this.appointments().filter(
+      a => String(a.doctorId).toLowerCase() === String(doctorId).toLowerCase()
+    );
   });
 
   readonly monitoredAppointments = computed(() => {
     const target = this.startOfDay(this.monitorDate());
     const range  = this.monitorRange();
-    return this.doctorAppointments()
+    const all    = this.doctorAppointments();
+    console.log('[monitored] date=', target, 'range=', range, 'doctorAppts=', all.length, 'total=', this.appointments().length);
+    return all
       .filter(a => this.isInRange(new Date(a.dateTime), target, range))
       .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
   });
@@ -422,6 +444,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
           this.replaceAppointment(enriched);
           this.rescheduleDialogVisible.set(false);
           this.messageService.add({ severity: 'success', summary: 'Reprogrammé', detail: 'Nouveau créneau enregistré.' });
+          setTimeout(() => this.loadAppointments(), 500);
         },
         error: (err: unknown) => this.showError(this.errorMessage(err)),
       });
@@ -500,7 +523,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     date:            FormControl<Date>;
     selectedSlot:    FormControl<string>;
     appointmentType: FormControl<string>;
-    durationMinutes: FormControl<number>;
   }>;
 
   consultationForm!:    FormGroup;
@@ -573,7 +595,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       date:            new Date(),
       selectedSlot:    '',
       appointmentType: 'CONSULTATION',
-      durationMinutes: 30,
     });
     this.appointmentDialogVisible.set(true);
     this.checkAvailability();
@@ -604,7 +625,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const { patientId, selectedSlot, appointmentType, durationMinutes } =
+    const { patientId, selectedSlot, appointmentType } =
       this.appointmentForm.getRawValue();
 
     if (!selectedSlot) { this.showError('Veuillez sélectionner un créneau horaire.'); return; }
@@ -619,7 +640,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       patientEmail:     patient.email,
       patientFirstName: patient.firstName,
       appointmentType: appointmentType as AppointmentRequest['appointmentType'],
-      durationMinutes,
     };
 
     this.submitting.set(true);
@@ -628,24 +648,47 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       finalize(() => this.submitting.set(false)),
     ).subscribe({
       next: appt => {
-        // Enrich locally so the table and timetable show the name/type immediately
+  // Auto-confirm immediately since this was doctor-initiated
+  this.appointmentService
+    .confirm(appt.id, {
+      patientId:        String(patient.id),
+      doctorId:         this.currentUser()!.id,
+      dateTime:         appt.dateTime,
+      patientEmail:     patient.email,
+      patientFirstName: patient.firstName,
+    })
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: confirmed => {
+        const enriched = {
+          ...confirmed,
+          patientFirstName: patient.firstName,
+          patientLastName:  patient.lastName,
+          patientEmail:     patient.email,
+          appointmentType,
+        } as unknown as Appointment;
+        this.appointments.update(list => [enriched, ...list]);
+        this.appointmentDialogVisible.set(false);
+        this.messageService.add({
+          severity: 'success',
+          summary:  'Rendez-vous confirmé',
+          detail:   `${patient.firstName} ${patient.lastName} · ${appt.dateTime.substring(0,16).replace('T',' ')} — le patient sera notifié.`,
+        });
+      },
+      error: () => {
+        // confirm failed but create succeeded — add as PENDING at least
         const enriched = {
           ...appt,
           patientFirstName: patient.firstName,
           patientLastName:  patient.lastName,
           patientEmail:     patient.email,
           appointmentType,
-          durationMinutes,
         } as unknown as Appointment;
         this.appointments.update(list => [enriched, ...list]);
         this.appointmentDialogVisible.set(false);
-        this.messageService.add({
-          severity: 'success',
-          summary:  'Rendez-vous créé',
-          detail:   `${patient.firstName} ${patient.lastName} · ${selectedSlot.substring(0,16).replace('T',' ')}`,
-        });
       },
-      error: (err: unknown) => this.showError(this.errorMessage(err)),
+    });
+      },
     });
   }
 
@@ -687,17 +730,32 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   runPrediction(): void {
     if (this.predictionForm.invalid) { this.predictionForm.markAllAsTouched(); return; }
 
+    const v = this.predictionForm.getRawValue();
+    const payload: PredictionPayload = {
+      age: v.age,
+      sex: v.sex === 1 ? true : false,
+      chestPainType: v.chestPainType,
+      restingBloodPressure: v.restingBP,
+      cholesterol: v.cholesterol,
+      fastingBloodSugar: v.fastingBS === true,
+      restingECG: v.restingECG,
+      maxHeartRateAchieved: v.maxHR,
+      exerciseInducedAngina: v.exerciseAngina === true,
+      STDepressionInducedByExercise: v.oldpeak,
+      slopeOfPeakExerciseSTSegment: v.slope,
+      nbOfMajorVessels: v.nbOfMajorVessels,
+      thalassemia: v.thalassemia,
+    };
+
     this.predicting.set(true);
-    this.predictionService
-      .predict(this.predictionForm.getRawValue() as PredictionPayload)
+    this.predictionService.predict(payload)
       .pipe(takeUntil(this.destroy$), finalize(() => this.predicting.set(false)))
       .subscribe({
         next: result => this.predictionResult.set({
           ...result,
           createdAt: new Date().toISOString(),
-          payload:   this.predictionForm.getRawValue() as PredictionPayload,
+          payload: this.predictionForm.getRawValue() as PredictionPayload,
         }),
-        error: () => this.showError('Le service de prédiction est indisponible.'),
       });
   }
 
@@ -710,30 +768,39 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
     this.submitting.set(true);
     this.appointmentService
-      .complete(appointment.id, this.toAppointmentIdentity(appointment))
-      .pipe(takeUntil(this.destroy$))
+      .complete(appointment.id, {
+        ...this.toAppointmentIdentity(appointment),
+        notes:            this.consultationForm.controls['notes'].value,
+        diagnosis:        this.consultationForm.controls['diagnosis'].value,
+        predictionResult: this.predictionResult() ?? undefined,
+      } as any)
+      .pipe(takeUntil(this.destroy$), finalize(() => this.submitting.set(false)))
       .subscribe({
         next: completed => {
           this.replaceAppointment(completed);
-          this.medicalFileService.saveConsultation({
-            appointmentId:   completed.id,
-            patientId:       completed.patientId,
-            doctorId:        completed.doctorId,
-            notes:           this.consultationForm.controls['notes'].value,
-            diagnosis:       this.consultationForm.controls['diagnosis'].value,
-            predictionResult: this.predictionResult() ?? undefined,
-          }).pipe(takeUntil(this.destroy$), finalize(() => this.submitting.set(false)))
-            .subscribe({
-              next:  consultation => this.afterConsultationSaved(consultation),
-              error: () => this.showError(
-                'Le rendez-vous est terminé, mais les notes doivent être vérifiées côté dossier.',
-              ),
-            });
+          this.consultationDialogVisible.set(false);
+          this.messageService.add({
+            severity: 'success',
+            summary:  'Consultation enregistrée',
+            detail:   'Ajoutée au dossier médical.',
+          });
+
+          // Kafka is async — wait 1.5s for the consultation-service to process
+          // the appointment.completed event, then reload the medical file
+          const patient = this.selectedPatient();
+          if (patient) {
+            setTimeout(() => {
+              this.medicalFileService
+                .getByPatientId(String(patient.id))
+                .pipe(takeUntil(this.destroy$))
+                .subscribe({
+                  next: file => this.medicalFile.set(this.withSortedConsultations(file)),
+                  error: () => {} // silent — doctor can navigate to dossier manually
+                });
+            }, 1500);
+          }
         },
-        error: (err: unknown) => {
-          this.submitting.set(false);
-          this.showError(this.errorMessage(err));
-        },
+        error: (err: unknown) => this.showError(this.errorMessage(err)),
       });
   }
 
@@ -757,11 +824,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       age: Number(this.addPatientForm.value.age)
     };
 
-    this.doctorService.createPatient(payload).pipe(
+    this.doctorApi.createPatient(payload).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingAddPatient.set(false)),
     ).subscribe({
-      next: (uuid) => {
+      next: (patient) => {
         this.messageService.add({
           severity: 'success',
           summary:  'Patient ajouté',
@@ -777,6 +844,27 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       },
     });
   }
+
+//    this.doctorService.createPatient(payload).pipe(
+//      takeUntil(this.destroy$),
+//      finalize(() => this.submittingAddPatient.set(false)),
+//    ).subscribe({
+//      next: (uuid) => {
+//        this.messageService.add({
+//          severity: 'success',
+//          summary:  'Patient ajouté',
+//          detail:   'Le patient a été enregistré avec succès.',
+//        });
+//        this.addPatientVisible.set(false);
+//        this.addPatientForm.reset();
+//        this.loadPatients();
+//      },
+//      error: err => {
+//        const detail = err?.error?.message ?? "Impossible d'ajouter le patient.";
+//        this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+//      },
+//    });
+//  }
 
   openEditPatient(patient: Patient): void {
     this.selectedPatientForEdit.set(patient);
@@ -824,6 +912,19 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  onDobChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.value) return;
+    const dob = new Date(input.value);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    this.addPatientForm.patchValue({ age });
+    // Also pre-fill prediction form
+    this.predictionForm.patchValue({ age });
+  }
+
   openPatientDetail(patient: Patient): void {
     this.selectedPatientDetail.set(patient);
     this.patientDetailVisible.set(true);
@@ -859,7 +960,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.submittingChangePassword.set(true);
     const { currentPassword, newPassword } = this.changePasswordForm.value;
 
-    this.doctorService.changePassword({ currentPassword, newPassword }).pipe(
+    this.doctorService.changePassword({ currentPassword, newPassword, email: this.user()?.email! }).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingChangePassword.set(false)),
     ).subscribe({
@@ -998,11 +1099,11 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
-  // Clear tokens and redirect
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  window.location.href = '/authenticate';
-}
+    // Clear tokens and redirect
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    window.location.href = '/authenticate';
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Display helpers
@@ -1042,9 +1143,10 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return status ? (map[status] ?? 'secondary') : 'secondary';
   }
 
-  riskText(result?: PredictionResult | null): string {
+  riskText(result?: PredictionResult | string | null): string {
     if (!result) return 'Aucune prédiction';
-    return result.prediction === 1 ? 'Risque élevé' : 'Risque faible';
+    const prediction = typeof result === 'string' ? result : result.prediction;
+    return prediction === 'High Risk' ? 'Risque élevé' : 'Risque faible';
   }
 
   formatDate(dateStr?: string): string {
@@ -1112,17 +1214,60 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   loadAppointments(): void {
     this.loadingAppointments.set(true);
     this.errorAppointments.set(null);
-    this.appointmentService.findAll().pipe(takeUntil(this.destroy$)).subscribe({
-      next: appointments => {
-        this.appointments.set(appointments);
+
+    this.appointmentService.findAll().pipe(
+      switchMap(appointments => {
+        if (!appointments.length) return of([]);
+        console.log("APPOINTMENTS FROM API", appointments);
+
+        // Deduplicate patient IDs to avoid redundant calls
+        const uniquePatientIds = [...new Set(appointments.map(a => String(a.patientId)))];
+
+        this.patientService.getProfile('b68277a0-ed9f-439d-ae4b-622c558eeb28')
+        .pipe(
+          catchError(() => of(console.log("PATIENT NOT FOUND")))
+        )
+        .subscribe(profile => {
+          console.log("TEST PROFILE", profile);
+        });
+
+        uniquePatientIds.forEach(id => {
+          this.patientService.getProfile(id).pipe(
+            catchError(() => of({ firstName: '', lastName: '', email: '' } as any))
+          ).subscribe(profile => {
+            console.log("PROFILE", profile);
+          });
+        });
+
+        return forkJoin(
+          uniquePatientIds.reduce((acc, id) => {
+            acc[id] = this.patientService.getProfile(id).pipe(      
+              catchError(() => of({ firstName: '', lastName: '', email: '' } as any)));
+            return acc;
+          }, {} as Record<string, Observable<PatientProfile>>)
+        ).pipe(
+          map(profilesById => appointments.map(appt => ({
+            ...appt,
+            patientFirstName: profilesById[String(appt.patientId)]?.firstName || (appt as any).patientFirstName || '',
+            patientLastName:  profilesById[String(appt.patientId)]?.lastName  || (appt as any).patientLastName  || '',
+            patientEmail:     profilesById[String(appt.patientId)]?.email     || appt.patientEmail || '',
+          }))),
+        );
+      }),
+      takeUntil(this.destroy$),
+      finalize(() => {
         this.loadingAppointments.set(false);
         this.cdr.detectChanges();
+      })
+    ).subscribe({
+      next: appointments => {
+        this.appointments.set(appointments);
+        this.cdr.detectChanges();
+        console.log('Appointments loaded:', appointments);
       },
       error: err => {
         this.errorAppointments.set(err?.error?.message ?? 'Impossible de charger les rendez-vous.');
         this.appointments.set([]);
-        this.loadingAppointments.set(false);
-        this.cdr.detectChanges();
       },
     });
   }
@@ -1134,13 +1279,26 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   private afterConsultationSaved(consultation: Consultation): void {
     this.consultationDialogVisible.set(false);
     this.messageService.add({ severity: 'success', summary: 'Consultation enregistrée', detail: 'Ajoutée au dossier médical.' });
+
     const current = this.medicalFile();
     if (current && String(current.patientId) === String(consultation.patientId)) {
+      // Medical file was already loaded — append directly (no extra API call)
       this.medicalFile.set(this.withSortedConsultations({
         ...current,
         consultations: [consultation, ...current.consultations],
         updatedAt: new Date().toISOString(),
       }));
+    } else {
+      const patient = this.selectedPatient();
+      if (patient) {
+        this.medicalFileService
+          .getByPatientId(String(patient.id))
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: file => this.medicalFile.set(this.withSortedConsultations(file)),
+            error: () => {} // silent — the dossier tab will retry on navigation
+          });
+      }
     }
   }
 
@@ -1162,7 +1320,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   private withSortedConsultations(file: MedicalFile): MedicalFile {
     return {
       ...file,
-      consultations: [...file.consultations].sort(
+      consultations: [...(file.consultations ?? [])].sort(
         (a, b) => new Date(b.dateDeConsultation).getTime() - new Date(a.dateDeConsultation).getTime(),
       ),
     };
@@ -1170,7 +1328,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   private isInRange(value: Date, start: Date, range: MonitorRange): boolean {
     const day   = this.startOfDay(value).getTime();
-    const begin = start.getTime();
+    const begin = this.startOfDay(start).getTime();
     if (range === 'day') return day === begin;
     if (range === 'week') {
       const end = new Date(start);
@@ -1224,7 +1382,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
       date:            nnfb.control(new Date(),   Validators.required),
       selectedSlot:    nnfb.control('',            Validators.required),
       appointmentType: nnfb.control('CONSULTATION', Validators.required),
-      durationMinutes: nnfb.control(30,            [Validators.required, Validators.min(15)]),
     });
 
     this.consultationForm = this.fb.group({

@@ -24,7 +24,12 @@ export interface AppStats {
 
 export interface ActivityEntry {
   id: number;
-  type: 'doctor_created' | 'patient_registered' | 'consultation_completed' | 'account_deactivated' | string;
+  type:
+    | 'doctor_created'
+    | 'patient_registered'
+    | 'consultation_completed'
+    | 'account_deactivated'
+    | string;
   description: string;
   timestamp: string;
 }
@@ -42,11 +47,10 @@ export class AdminService {
 
     return {
       headers: new HttpHeaders({
-        Authorization: `Bearer ${token ?? ''}`
-      })
+        Authorization: `Bearer ${token ?? ''}`,
+      }),
     };
   }
-
 
   getStats(): Observable<AppStats> {
     return this.http.get<AppStats>(`${this.baseUrl}/stats`);

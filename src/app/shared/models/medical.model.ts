@@ -11,7 +11,6 @@ export interface Appointment {
   patientLastName?: string;
   doctorFirstName?: string;
   doctorLastName?: string;
-  durationMinutes?: number;
   appointmentType?: 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP' | 'CONSULTATION';
 }
 
@@ -23,7 +22,6 @@ export interface AppointmentRequest {
   patientEmail?: string;
   patientFirstName?: string;
   patientLastName?: string;
-  durationMinutes?: number;
   appointmentType?: 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP' | 'CONSULTATION';
 }
 
@@ -39,7 +37,6 @@ export interface DoctorAvailability {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
-  slotDurationMinutes: number;
 }
 
 export type DayOfWeek =
@@ -73,6 +70,13 @@ export interface MedicalFile {
   updatedAt?: string;
   consultations: Consultation[];
   notes?: MedicalNote[];
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskPercentage?: number;
+}
+
+export interface MedicalFileUpdateRequest {
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskPercentage?: number;
 }
 
 export interface Consultation {
@@ -86,6 +90,7 @@ export interface Consultation {
   notes?: string;
   diagnosis?: string;
   predictionResult?: PredictionResult;
+  visibleToPatient?: boolean;
 }
 
 export interface ConsultationSaveRequest {
@@ -122,9 +127,8 @@ export interface PredictionPayload {
 }
 
 export interface PredictionResult {
-  prediction: number;
-  probability?: number;
-  riskLabel?: string;
+  percentage: string;
+  prediction: string;
   createdAt?: string;
   payload?: PredictionPayload;
 }  

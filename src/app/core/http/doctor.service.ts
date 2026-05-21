@@ -2,6 +2,8 @@ import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { Observable } from 'rxjs';
+import { Store } from '@ngrx/store';
+import { selectCurrentUser } from '../../store/auth/auth.selectors';
 
 export interface Patient {
   id: string | number;
@@ -10,16 +12,15 @@ export interface Patient {
   email: string;
   age: number;
   dateOfBirth?: string;
-  phone?: string;
-  status?: 'stable' | 'critical' | 'monitoring' | 'discharged';
   lastVisit?: string;
   riskLevel?: 'low' | 'medium' | 'high';
 }
 
 export interface Appointment {
   dateTime: any;
-  id: number;
-  patientId: number;
+  id: string;
+  patientId: string;
+  doctorId: string;
   patientName?: string;
   date: string;
   time?: string;
@@ -32,10 +33,10 @@ export interface ConsultationComplete {
   appointmentId: number;
   notes: string;
   diagnosis?: string;
-  nextAppointment?: string;
 }
 
 export interface ChangePasswordRequest {
+  email: string;
   currentPassword: string;
   newPassword: string;
 }
@@ -46,13 +47,6 @@ export class DoctorService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly baseUrl = 'http://localhost:8080/api/v1';
-
-  private getAuthHeaders(): { headers: HttpHeaders } {
-    const token = this.isBrowser ? localStorage.getItem('access_token') : null;
-    return {
-      headers: new HttpHeaders({ Authorization: `Bearer ${token ?? ''}` }),
-    };
-  }
 
   getPatients(): Observable<Patient[]> {
     return this.http.get<Patient[]>(`${this.baseUrl}/patients`);
@@ -65,6 +59,14 @@ export class DoctorService {
   getPatientById(id: number): Observable<Patient> {
     return this.http.get<Patient>(`${this.baseUrl}/patients/${id}`);
   }
+  
+  deletePatient(id: string | number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/patients/${id}`);
+  }
+
+  updatePatient(id: string | number, data: Partial<Patient>): Observable<Patient> {
+    return this.http.put<Patient>(`${this.baseUrl}/patients/${id}`, data);
+  }
 
   getAppointments(): Observable<Appointment[]> {
     return this.http.get<Appointment[]>(`${this.baseUrl}/appointments`);
@@ -75,23 +77,15 @@ export class DoctorService {
   }
 
   changePassword(data: ChangePasswordRequest): Observable<any> {
-    return this.http.post(`${this.baseUrl}/doctors/change-password`, data);
+    return this.http.post(`${this.baseUrl}/doctors/change-password`, {...data});
   }
 
-   getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
-    return this.http.get<{ firstName: string; lastName: string }>(`${this.baseUrl}/api/v1/doctors/${id}`);
+  getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
+    return this.http.get<{ firstName: string; lastName: string }>(`${this.baseUrl}/doctors/${id}`);
   }
 
   updateDoctor(data: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/doctors`, data);
   }
 
-  deletePatient(id: string | number): Observable<any> {
-    return this.http.delete(`${this.baseUrl}/patients/${id}`);
-  }
-
-  updatePatient(id: string | number, data: Partial<Patient>): Observable<Patient> {
-    return this.http.put<Patient>(`${this.baseUrl}/patients/${id}`, data);
-  }
 }
- 
