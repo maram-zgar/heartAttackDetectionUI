@@ -418,7 +418,7 @@
 
                 <div class="cs-timeline-track">
                   <div class="cs-timeline-dot"
-                       [class.cs-dot-risk]="c.predictionResult?.prediction === 1"></div>
+                       [class.cs-dot-risk]="c.predictionResult?.prediction === 'High Risk'"></div>
                   <div class="cs-timeline-line"
                        *ngIf="i < file.consultations.length - 1"></div>
                 </div>

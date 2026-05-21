@@ -13,7 +13,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { forkJoin, Observable, Subject } from 'rxjs';
-import { takeUntil, catchError, finalize, filter, switchMap, map } from 'rxjs/operators';
+import { takeUntil, catchError, finalize, filter, switchMap, map, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { TableModule } from 'primeng/table';
 import { TabsModule } from 'primeng/tabs';
@@ -70,6 +70,7 @@ import { UserProfile } from '../../shared/models/user-profile.model';
 import { sign } from 'crypto';
 import { DoctorTimetableComponent } from './components/timetable/doctor-timetable.component';
 import { PatientService, PatientProfile } from '../../core/http/patient.service';
+import { DoctorApiService } from './services/doctor-api.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
@@ -155,6 +156,8 @@ onTimetableSlotSelected(payload: string): void {
   @Inject(PLATFORM_ID) private platformId: object = inject(PLATFORM_ID);
   private readonly patientService = inject(PatientService);
   private readonly destroy$ = new Subject<void>();
+  private readonly doctorApi = inject(DoctorApiService);
+  readonly predictionResult = signal<PredictionResult | null>(null);
   profileModalVisible = signal(false);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -236,11 +239,6 @@ onTimetableSlotSelected(payload: string): void {
   readonly availableSlots = signal<string[]>([]);
   readonly errorPatients     = signal<string | null>(null);
   readonly errorAppointments = signal<string | null>(null);
-
-  readonly predictionResult = signal<(PredictionResult & {
-    createdAt?: string;
-    payload?: PredictionPayload;
-  }) | null>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – UI
@@ -732,17 +730,32 @@ onTimetableSlotSelected(payload: string): void {
   runPrediction(): void {
     if (this.predictionForm.invalid) { this.predictionForm.markAllAsTouched(); return; }
 
+    const v = this.predictionForm.getRawValue();
+    const payload: PredictionPayload = {
+      age: v.age,
+      sex: v.sex === 1 ? true : false,
+      chestPainType: v.chestPainType,
+      restingBloodPressure: v.restingBP,
+      cholesterol: v.cholesterol,
+      fastingBloodSugar: v.fastingBS === true,
+      restingECG: v.restingECG,
+      maxHeartRateAchieved: v.maxHR,
+      exerciseInducedAngina: v.exerciseAngina === true,
+      STDepressionInducedByExercise: v.oldpeak,
+      slopeOfPeakExerciseSTSegment: v.slope,
+      nbOfMajorVessels: v.nbOfMajorVessels,
+      thalassemia: v.thalassemia,
+    };
+
     this.predicting.set(true);
-    this.predictionService
-      .predict(this.predictionForm.getRawValue() as PredictionPayload)
+    this.predictionService.predict(payload)
       .pipe(takeUntil(this.destroy$), finalize(() => this.predicting.set(false)))
       .subscribe({
         next: result => this.predictionResult.set({
           ...result,
           createdAt: new Date().toISOString(),
-          payload:   this.predictionForm.getRawValue() as PredictionPayload,
+          payload: this.predictionForm.getRawValue() as PredictionPayload,
         }),
-        error: () => this.showError('Le service de prédiction est indisponible.'),
       });
   }
 
@@ -811,11 +824,11 @@ onTimetableSlotSelected(payload: string): void {
       age: Number(this.addPatientForm.value.age)
     };
 
-    this.doctorService.createPatient(payload).pipe(
+    this.doctorApi.createPatient(payload).pipe(
       takeUntil(this.destroy$),
       finalize(() => this.submittingAddPatient.set(false)),
     ).subscribe({
-      next: (uuid) => {
+      next: (patient) => {
         this.messageService.add({
           severity: 'success',
           summary:  'Patient ajouté',
@@ -831,6 +844,27 @@ onTimetableSlotSelected(payload: string): void {
       },
     });
   }
+
+//    this.doctorService.createPatient(payload).pipe(
+//      takeUntil(this.destroy$),
+//      finalize(() => this.submittingAddPatient.set(false)),
+//    ).subscribe({
+//      next: (uuid) => {
+//        this.messageService.add({
+//          severity: 'success',
+//          summary:  'Patient ajouté',
+//          detail:   'Le patient a été enregistré avec succès.',
+//        });
+//        this.addPatientVisible.set(false);
+//        this.addPatientForm.reset();
+//        this.loadPatients();
+//      },
+//      error: err => {
+//        const detail = err?.error?.message ?? "Impossible d'ajouter le patient.";
+//        this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+//      },
+//    });
+//  }
 
   openEditPatient(patient: Patient): void {
     this.selectedPatientForEdit.set(patient);
@@ -1109,9 +1143,10 @@ onTimetableSlotSelected(payload: string): void {
     return status ? (map[status] ?? 'secondary') : 'secondary';
   }
 
-  riskText(result?: PredictionResult | null): string {
+  riskText(result?: PredictionResult | string | null): string {
     if (!result) return 'Aucune prédiction';
-    return result.prediction === 1 ? 'Risque élevé' : 'Risque faible';
+    const prediction = typeof result === 'string' ? result : result.prediction;
+    return prediction === 'High Risk' ? 'Risque élevé' : 'Risque faible';
   }
 
   formatDate(dateStr?: string): string {
@@ -1183,9 +1218,26 @@ onTimetableSlotSelected(payload: string): void {
     this.appointmentService.findAll().pipe(
       switchMap(appointments => {
         if (!appointments.length) return of([]);
+        console.log("APPOINTMENTS FROM API", appointments);
 
         // Deduplicate patient IDs to avoid redundant calls
         const uniquePatientIds = [...new Set(appointments.map(a => String(a.patientId)))];
+
+        this.patientService.getProfile('b68277a0-ed9f-439d-ae4b-622c558eeb28')
+        .pipe(
+          catchError(() => of(console.log("PATIENT NOT FOUND")))
+        )
+        .subscribe(profile => {
+          console.log("TEST PROFILE", profile);
+        });
+
+        uniquePatientIds.forEach(id => {
+          this.patientService.getProfile(id).pipe(
+            catchError(() => of({ firstName: '', lastName: '', email: '' } as any))
+          ).subscribe(profile => {
+            console.log("PROFILE", profile);
+          });
+        });
 
         return forkJoin(
           uniquePatientIds.reduce((acc, id) => {
@@ -1199,7 +1251,7 @@ onTimetableSlotSelected(payload: string): void {
             patientFirstName: profilesById[String(appt.patientId)]?.firstName || (appt as any).patientFirstName || '',
             patientLastName:  profilesById[String(appt.patientId)]?.lastName  || (appt as any).patientLastName  || '',
             patientEmail:     profilesById[String(appt.patientId)]?.email     || appt.patientEmail || '',
-          })))
+          }))),
         );
       }),
       takeUntil(this.destroy$),
@@ -1211,6 +1263,7 @@ onTimetableSlotSelected(payload: string): void {
       next: appointments => {
         this.appointments.set(appointments);
         this.cdr.detectChanges();
+        console.log('Appointments loaded:', appointments);
       },
       error: err => {
         this.errorAppointments.set(err?.error?.message ?? 'Impossible de charger les rendez-vous.');

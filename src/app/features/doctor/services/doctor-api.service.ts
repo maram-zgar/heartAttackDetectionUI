@@ -58,7 +58,7 @@ export class DoctorApiService {
   }
 
   createPatient(payload: PatientRequest): Observable<PatientResponse> {
-    return this.http.post<PatientResponse>(`${this.baseUrl}/patients`, payload);
+    return this.http.post<PatientResponse>(`${this.baseUrl}/auth/register`, payload);
   }
 
   updatePatient(payload: PatientRequest): Observable<void> {

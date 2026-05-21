@@ -473,11 +473,11 @@
                     @if (c.predictionResult) {
                       <article class="doc-history-item">
                         <div class="doc-history-header">
-                          <strong [class.risk-high]="c.predictionResult.prediction === 1"
-                                  [class.risk-low]="c.predictionResult.prediction === 0">
+                          <strong [class.risk-high]="c.predictionResult.prediction === 'High Risk'"
+                            [class.risk-low]="c.predictionResult.prediction === 'Low Risk'">
                             {{ riskText(c.predictionResult) }}
                           </strong>
-                          <span>{{ c.predictionResult.probability | percent:'1.0-1' }}</span>
+                          <span>{{ c.predictionResult.percentage }}</span>
                         </div>
                         <p>Consultation du {{ formatDate(c.dateDeConsultation) }}</p>
                       </article>
@@ -513,7 +513,7 @@
           </div>
         </div>
 
-        < class="doc-card" style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="doc-card" style="display: flex; flex-direction: column; gap: 24px;"></div>
           
         <div class="doc-prediction-layout">
           <div class="doc-card doc-prediction-form-card">
@@ -597,13 +597,13 @@
                 <p class="doc-pred-idle-text">Remplissez les paramètres et lancez l'analyse pour voir le résultat ici.</p>
               </div>
             } @else {
-              <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 1" [class.low]="predictionResult()?.prediction === 0">
+              <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 'High Risk'" [class.low]="predictionResult()?.prediction === 'Low Risk'">
                 <svg class="doc-pred-heart-result" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
                   <path class="heart-path" d="M50 85 L10 45 A25 25 0 0 1 50 20 A25 25 0 0 1 90 45 Z"/>
                 </svg>
                 <div class="doc-pred-result-label">{{ riskText(predictionResult()!) }}</div>
                 <div class="doc-pred-result-prob">
-                  <strong>{{ predictionResult()?.probability | percent:'1.0-1' }}</strong>
+                  <strong>{{ predictionResult()?.percentage }}</strong>
                   Probabilité estimée
                 </div>
               </div>
@@ -930,7 +930,7 @@
          
          @if (predictionResult()) {
             <div style="margin-top: 16px; text-align: center; color: var(--doc-primary);">
-              <strong>Score: {{ predictionResult()?.probability | percent:'1.0-1' }}</strong>
+              <strong>Score: {{ predictionResult()?.percentage }}</strong>
               <p>{{ riskText(predictionResult()!) }}</p>
             </div>
          }

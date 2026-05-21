@@ -553,14 +553,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     return status ? (map[status] ?? 'pi pi-circle') : 'pi pi-circle';
   }
 
-  riskText(prediction: number | undefined): string {
-    if (prediction == null) return '—';
-    return prediction === 1 ? 'Risque élevé' : 'Risque faible';
+  riskText(prediction?: string): string {
+    return prediction === 'High Risk' ? 'Risque élevé' : 'Risque faible';
   }
 
-  riskSeverity(prediction: number | undefined): 'danger' | 'success' | 'secondary' {
-    if (prediction == null) return 'secondary';
-    return prediction === 1 ? 'danger' : 'success';
+  riskSeverity(prediction?: string): 'danger' | 'warn' | 'success' {
+    if (prediction === 'High Risk') return 'danger';
+    return 'success';
   }
 
   formatDate(dateStr?: string): string {

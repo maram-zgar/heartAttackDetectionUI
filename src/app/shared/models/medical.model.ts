@@ -127,9 +127,8 @@ export interface PredictionPayload {
 }
 
 export interface PredictionResult {
-  prediction: number;
-  probability?: number;
-  riskLabel?: string;
+  percentage: string;
+  prediction: string;
   createdAt?: string;
   payload?: PredictionPayload;
 }  

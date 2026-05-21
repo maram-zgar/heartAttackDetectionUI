@@ -321,6 +321,8 @@ export class DoctorTimetableComponent implements OnInit, OnDestroy {
     if (!slot.appointment) return '';
     const appt = slot.appointment as any;
 
+    // console.log("APPT: ", appt)
+
     // Prefer explicit name fields set on the appointment (from the backend JOIN)
     if (appt.patientFirstName) {
       return `${appt.patientFirstName} ${appt.patientLastName ?? ''}`.trim();

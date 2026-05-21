@@ -8,6 +8,6 @@ export class PredictionService {
   private readonly http = inject(HttpClient);
 
   predict(payload: PredictionPayload): Observable<PredictionResult> {
-    return this.http.post<PredictionResult>('http://127.0.0.1:8000/predict', payload);
+    return this.http.post<PredictionResult>('/api/v1/prediction/predict', payload);
   }
 }
