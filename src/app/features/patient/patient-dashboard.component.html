@@ -171,12 +171,8 @@
                 </div>
                 <div *ngFor="let c of recentConsultations()" class="cs-consult-item">
                   <div class="cs-consult-date">{{ formatDate(c.dateDeConsultation) }}</div>
-                  <div class="cs-consult-diag">{{ c.notes || 'Notes non disponibles' }}</div>
-                  <div *ngIf="c.predictionResult as pr" class="cs-consult-risk">
-                    <p-tag
-                      [severity]="riskSeverity(pr.prediction)"
-                      [value]="riskText(pr.prediction)"
-                    />
+                  <div class="cs-consult-diag">
+                    {{ c.vitals?.length ? c.vitals.length + ' mesure(s) enregistrée(s)' : 'Aucune mesure' }}
                   </div>
                 </div>
               </ng-template>
@@ -402,60 +398,71 @@
           </div>
 
           <!-- Consultation timeline -->
+          <!-- Inside the medical file section, replace the cs-card with the timeline -->
           <div class="cs-card">
             <div class="cs-card-header">
               <h3><i class="pi pi-history"></i> Historique des consultations</h3>
+              <span class="cs-badge">{{ consultations().length }}</span>
             </div>
             <div class="cs-card-body">
 
-              <div *ngIf="!file.consultations?.length" class="cs-empty">
+              <ng-container *ngIf="loadingConsultations()">
+                <div *ngFor="let s of skeletonArray(3)" class="cs-skeleton-row">
+                  <p-skeleton height="4rem" styleClass="mb-3" />
+                </div>
+              </ng-container>
+
+              <div *ngIf="!loadingConsultations() && consultations().length === 0" class="cs-empty">
                 <i class="pi pi-inbox"></i>
                 <span>Aucune consultation enregistrée</span>
               </div>
 
-              <div *ngFor="let c of file.consultations; let i = index"
-                   class="cs-timeline-entry" [class.cs-timeline-first]="i === 0">
+              <div *ngFor="let c of consultations(); let i = index"
+                  class="cs-timeline-entry" [class.cs-timeline-first]="i === 0">
 
                 <div class="cs-timeline-track">
                   <div class="cs-timeline-dot"
-                       [class.cs-dot-risk]="c.predictionResult?.prediction === 'High Risk'"></div>
+                      [class.cs-dot-risk]="hasHighRisk(c)"></div>
                   <div class="cs-timeline-line"
-                       *ngIf="i < file.consultations.length - 1"></div>
+                      *ngIf="i < consultations().length - 1"></div>
                 </div>
 
                 <div class="cs-timeline-card">
                   <div class="cs-timeline-card-header">
                     <span class="cs-timeline-date">{{ formatDate(c.dateDeConsultation) }}</span>
-                    <p-tag
-                      *ngIf="c.predictionResult"
-                      [severity]="riskSeverity(c.predictionResult.prediction)"
-                      [value]="riskText(c.predictionResult.prediction)"
-                    />
+                    <span class="cs-badge cs-badge-secondary">
+                      {{ c.vitals?.length || 0 }} mesure(s)
+                    </span>
                   </div>
 
                   <div class="cs-timeline-card-body">
-                    <!-- Notes (always visible to patient) -->
+                    <!-- Doctor notes -->
                     <div class="cs-consult-field" *ngIf="c.notes">
-                      <span class="cs-field-label">Notes</span>
+                      <span class="cs-field-label">Notes du médecin</span>
                       <span class="cs-field-value cs-field-notes">{{ c.notes }}</span>
                     </div>
 
-                    <!-- Vitals payload (only shown if present and visible) -->
-                    <div *ngIf="c.predictionResult?.payload as p" class="cs-vitals-grid">
-                      <div class="cs-vital">
-                        <span>Âge</span><strong>{{ p.age }}</strong>
+                    <!-- Vitals grid — shown when at least one vital is recorded -->
+                    <div *ngIf="c.vitals?.length" class="cs-vitals-grid">
+                      <div class="cs-vital" *ngIf="c.vitals[0].age != null">
+                        <span>Âge</span>
+                        <strong>{{ c.vitals[0].age }} ans</strong>
                       </div>
-                      <div class="cs-vital">
+                      <div class="cs-vital" *ngIf="c.vitals[0].restingBloodPressure != null">
                         <span>TA repos</span>
-                        <strong>{{ p.restingBloodPressure }} mmHg</strong>
+                        <strong>{{ c.vitals[0].restingBloodPressure }} mmHg</strong>
                       </div>
-                      <div class="cs-vital">
+                      <div class="cs-vital" *ngIf="c.vitals[0].cholesterol != null">
                         <span>Cholestérol</span>
-                        <strong>{{ p.cholesterol }} mg/dL</strong>
+                        <strong>{{ c.vitals[0].cholesterol }} mg/dL</strong>
                       </div>
-                      <div class="cs-vital">
+                      <div class="cs-vital" *ngIf="c.vitals[0].maxHeartRateAchieved != null">
                         <span>FC max</span>
-                        <strong>{{ p.maxHeartRateAchieved }} bpm</strong>
+                        <strong>{{ c.vitals[0].maxHeartRateAchieved }} bpm</strong>
+                      </div>
+                      <div class="cs-vital" *ngIf="c.vitals[0].risk_percentage != null">
+                        <span>Risque estimé</span>
+                        <strong>{{ (c.vitals[0].risk_percentage * 100).toFixed(1) }}%</strong>
                       </div>
                     </div>
                   </div>
@@ -464,7 +471,6 @@
               </div>
             </div>
           </div>
-
         </ng-container>
       </section>
 

@@ -54,6 +54,7 @@ import {
 } from '../../shared/models/medical.model';
 import { UserProfile }           from '../../shared/models/user-profile.model';
 import { PatientBookingComponent } from '../patient/components/booking/patient-booking.component';
+import { ConsultationService, PatientConsultation } from '../../core/http/consultation.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
@@ -81,6 +82,9 @@ interface SelectOption<T> { label: string; value: T; }
   styleUrls:   ['./patient-dashboard.component.scss'],
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
+hasHighRisk(c: PatientConsultation): boolean {
+  return c.vitals?.some(v => v.risk_percentage != null && v.risk_percentage > 0.5) ?? false;
+}
 
   // ── DI ────────────────────────────────────────────────────────────────────
   private readonly store               = inject(Store);
@@ -93,6 +97,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   private readonly confirmationService = inject(ConfirmationService);
   private readonly fb                  = inject(FormBuilder);
   private readonly cdr                 = inject(ChangeDetectorRef);
+  private readonly consultationService = inject(ConsultationService);
   private readonly platformId          = inject(PLATFORM_ID);
   private readonly destroy$            = new Subject<void>();
 
@@ -111,6 +116,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   readonly submittingAppointment = signal(false);
   readonly submittingPassword    = signal(false);
   readonly loadingDoctor         = signal(false);
+  readonly consultations = signal<PatientConsultation[]>([]);
+  readonly loadingConsultations = signal(false);
 
   // ── Data signals ──────────────────────────────────────────────────────────
   readonly currentUser    = signal<UserProfile | null>(null);
@@ -187,18 +194,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
    * Shows only consultations marked as `visibleToPatient = true` (if that
    * field exists — otherwise shows all).
    */
-  readonly recentConsultations = computed(() => {
-    const file = this.medicalFile();
-    if (!file?.consultations?.length) return [];
-    return [...file.consultations]
-      .filter(c => c.visibleToPatient !== false)
-      .sort(
-        (a, b) =>
-          new Date(b.dateDeConsultation).getTime() -
-          new Date(a.dateDeConsultation).getTime(),
+  readonly recentConsultations = computed<PatientConsultation[]>(() =>
+    [...this.consultations()]
+      .sort((a, b) =>
+        new Date(b.dateDeConsultation).getTime() -
+        new Date(a.dateDeConsultation).getTime()
       )
-      .slice(0, 5);
-  });
+      .slice(0, 5)
+  );
 
   // ── Forms ─────────────────────────────────────────────────────────────────
   bookingForm!:        FormGroup;
@@ -209,6 +212,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
+    console.log('CURRENT USERE: ', this.currentUser());
     this.buildForms();
 
     if (isPlatformBrowser(this.platformId)) {
@@ -261,9 +265,27 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadConsultations(): void {
+    const patientId = this.currentUser()?.id;
+    if (!patientId) return;
+
+    this.loadingConsultations.set(true);
+    this.consultationService.getByPatientId(String(patientId)).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => {
+        this.loadingConsultations.set(false);
+        this.cdr.detectChanges();
+      }),
+    ).subscribe({
+      next: list => this.consultations.set(list),
+      error: () => this.consultations.set([]),
+    });
+  }
+
   loadAllData(): void {
     this.loadAppointments();
     this.loadMedicalFile();
+    this.loadConsultations();
   }
 
   loadAppointments(): void {

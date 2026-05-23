@@ -15,14 +15,32 @@ export interface Appointment {
 }
 
 export interface AppointmentRequest {
-  patientId: string;
-  doctorId: string;
-  dateTime: string;
-  status?: AppointmentStatus;
-  patientEmail?: string;
+  patientId:        string;
+  doctorId:         string;
+  dateTime:         string;
+  patientEmail?:    string;
   patientFirstName?: string;
-  patientLastName?: string;
+  patientLastName?:  string;
+  status?:            AppointmentStatus;
+  notes?:           string;
+  diagnosis?:       string;
   appointmentType?: 'CHECKUP' | 'SURGERY' | 'FOLLOW_UP' | 'CONSULTATION';
+  prediction?: number;
+  riskPercentage?: number;           // mapped from risk_percentageDouble
+  // Vitals matching Java model
+  age?: number;
+  sex?: boolean;                      // changed to number (0/1)
+  chestPainType?: number;
+  restingBloodPressure?: number;     // renamed from restingBP
+  cholesterol?: number;
+  fastingBloodSugar?: boolean;       // renamed from fastingBS
+  restingECG?: number;
+  maxHeartRateAchieved?: number;     // renamed from maxHR
+  exerciseInducedAngina?: boolean;   // renamed from exerciseAngina
+  STDepressionInducedByExercise?: number; // renamed from oldpeak
+  slopeOfPeakExerciseSTSegment?: number;  // renamed from slope
+  nbOfMajorVessels?: number;
+  thalassemia?: number;
 }
 
 export interface AvailableSlotsResponse {
@@ -72,6 +90,7 @@ export interface MedicalFile {
   notes?: MedicalNote[];
   riskLevel?: 'low' | 'medium' | 'high';
   riskPercentage?: number;
+  vitals: Vitals[];
 }
 
 export interface MedicalFileUpdateRequest {
@@ -112,23 +131,24 @@ export interface MedicalNote {
 
 export interface PredictionPayload {
   age: number;
-  sex: boolean;
+  sex: boolean;                              // changed to number
   chestPainType: number;
-  restingBloodPressure: number;
+  restingBloodPressure: number;             // renamed
   cholesterol: number;
-  fastingBloodSugar: boolean;
+  fastingBloodSugar: boolean;               // renamed
   restingECG: number;
-  maxHeartRateAchieved: number;
-  exerciseInducedAngina: boolean;
-  STDepressionInducedByExercise: number;
-  slopeOfPeakExerciseSTSegment: number;
+  maxHeartRateAchieved: number;             // renamed
+  exerciseInducedAngina: boolean;           // renamed
+  STDepressionInducedByExercise: number;    // renamed from oldpeak
+  slopeOfPeakExerciseSTSegment: number;     // renamed from slope
   nbOfMajorVessels: number;
   thalassemia: number;
 }
 
 export interface PredictionResult {
   percentage: string;
-  prediction: string;
+  prediction:  'High Risk' | 'Low Risk';
+  risk_percentage?: number;
   createdAt?: string;
   payload?: PredictionPayload;
 }  
@@ -145,4 +165,27 @@ export interface DoctorAvailabilityResponse {
   dayOfWeek: string;
   startTime: string;
   endTime: string;
+}
+
+// shared/models/medical.model.ts
+
+export interface Vitals {
+  id: string;
+  recordedAt: string;
+  age?: number;
+  sex?: number;                              // changed to number
+  chestPainType?: number;
+  restingBloodPressure?: number;             // renamed
+  cholesterol?: number;
+  fastingBloodSugar?: boolean;               // renamed
+  restingECG?: number;
+  maxHeartRateAchieved?: number;             // renamed
+  exerciseInducedAngina?: boolean;           // renamed
+  STDepressionInducedByExercise?: number;    // renamed from oldpeak
+  slopeOfPeakExerciseSTSegment?: number;     // renamed from slope
+  nbOfMajorVessels?: number;
+  thalassemia?: number;
+  prediction?: number;
+  probability?: number;
+  riskPercentageDouble?: number;
 }
