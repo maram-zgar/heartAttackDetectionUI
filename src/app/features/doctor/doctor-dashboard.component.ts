@@ -1250,19 +1250,22 @@ onTimetableSlotSelected(payload: string): void {
   }
 
   loadPatients(): void {
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;                          // ← wait until profile is loaded
+
     this.loadingPatients.set(true);
     this.errorPatients.set(null);
-    this.doctorService.getPatients().pipe(takeUntil(this.destroy$)).subscribe({
+    this.doctorService.getPatients(doctorId).pipe(  // ← pass doctorId
+      takeUntil(this.destroy$),
+      finalize(() => this.loadingPatients.set(false))
+    ).subscribe({
       next: patients => {
         this.patients.set(patients);
-        this.loadingPatients.set(false);
         this.cdr.detectChanges();
       },
       error: err => {
         this.errorPatients.set(err?.error?.message ?? 'Impossible de charger les patients.');
         this.patients.set([]);
-        this.loadingPatients.set(false);
-        this.cdr.detectChanges();
       },
     });
   }

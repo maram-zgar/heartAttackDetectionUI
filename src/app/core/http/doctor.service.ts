@@ -48,8 +48,8 @@ export class DoctorService {
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly baseUrl = 'http://localhost:8080/api/v1';
 
-  getPatients(): Observable<Patient[]> {
-    return this.http.get<Patient[]>(`${this.baseUrl}/patients`);
+  getPatients(doctorId: string): Observable<Patient[]> {
+    return this.http.get<Patient[]>(`${this.baseUrl}/patients/doctor/${doctorId}`);
   }
 
   createPatient(data: Partial<Patient>): Observable<void> {

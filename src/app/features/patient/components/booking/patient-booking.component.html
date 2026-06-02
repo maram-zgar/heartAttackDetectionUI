@@ -1,0 +1,198 @@
+<!-- patient-booking.component.html -->
+<!--
+  PatientBookingComponent
+  ─────────────────────────────────────────────────────────────────
+  Shows the doctor's timetable (patient view — no appointment details).
+  When the patient clicks a free slot, a floating p-dialog confirmation
+  form appears instead of an inline panel below the grid.
+-->
+
+<div class="pb-wrapper">
+
+  <!-- ══ DOCTOR CARD ════════════════════════════════════════════════════ -->
+  @if (doctorFirstName || doctorLastName) {
+    <div class="pb-doctor-card">
+      <div class="pb-doctor-avatar">
+        {{ buildInitials(doctorFirstName, doctorLastName) }}
+      </div>
+      <div class="pb-doctor-info">
+        <div class="pb-doctor-name">Dr. {{ doctorFirstName }} {{ doctorLastName }}</div>
+        <div class="pb-doctor-sub">Cardiologie · Disponibilités en temps réel</div>
+      </div>
+      <p-tag value="Votre médecin" severity="success" />
+    </div>
+  }
+
+  <!-- ══ RANGE CONTROLS ════════════════════════════════════════════════ -->
+  <div class="pb-controls">
+    <div class="pb-range-group">
+      @for (opt of rangeOptions; track opt.value) {
+        <button type="button" class="pb-range-btn"
+          [class.active]="selectedRange() === opt.value"
+          (click)="setRange(opt.value)">{{ opt.label }}</button>
+      }
+    </div>
+    <div class="pb-nav-controls">
+      <button type="button" class="pb-nav-btn" (click)="navigateWindow(-1)">
+        <i class="pi pi-chevron-left"></i>
+      </button>
+      <button type="button" class="pb-today-btn" (click)="goToToday()">Aujourd'hui</button>
+      <button type="button" class="pb-nav-btn" (click)="navigateWindow(1)">
+        <i class="pi pi-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ LEGEND ════════════════════════════════════════════════════════ -->
+  <div class="pb-legend">
+    <span class="pb-leg available"><span class="pb-dot"></span>Libre</span>
+    <span class="pb-leg reserved"><span class="pb-dot"></span>Réservé</span>
+  </div>
+
+  <!-- ══ TIMETABLE GRID ════════════════════════════════════════════════ -->
+  <div class="pb-grid-container">
+    @if (loadingTimetable()) {
+      <div class="pb-loading">
+        <p-skeleton height="360px" borderRadius="16px" />
+      </div>
+    } @else if (timetable().length === 0) {
+      <div class="pb-empty-state">
+        <i class="pi pi-calendar-times"></i>
+        <p>Ce médecin n'a pas encore configuré ses disponibilités.</p>
+      </div>
+    } @else {
+      <div class="pb-cal-grid" [style.--col-count]="timetable().length">
+
+        <!-- Corner -->
+        <div class="pb-corner"></div>
+
+        <!-- Day headers -->
+        @for (day of timetable(); track day.date) {
+          <div class="pb-day-header" [class.today]="isToday(day.date)" [class.workday]="day.isWorkDay">
+            <span class="pb-day-name">{{ day.label }}</span>
+            @if (!day.isWorkDay) {
+              <span class="pb-day-off">Repos</span>
+            }
+          </div>
+        }
+
+        <!-- Time rows -->
+        @for (timeRow of timeRows(); track timeRow) {
+          <div class="pb-time-label">{{ timeRow }}</div>
+
+          @for (day of timetable(); track day.date) {
+            @if (!day.isWorkDay) {
+              <div class="pb-cell pb-cell--off"></div>
+            } @else {
+              @let slot = getSlot(day, timeRow);
+              @if (slot) {
+                @if (slot.state === 'available') {
+                  <!-- FREE: clickable -->
+                  <div
+                    class="pb-cell pb-cell--free"
+                    (click)="openBookingDialog(slot)"
+                    pTooltip="Cliquer pour réserver"
+                    tooltipPosition="top"
+                  >
+                    <i class="pi pi-plus pb-cell-plus"></i>
+                    <span class="pb-cell-time">{{ slot.time }}</span>
+                  </div>
+                } @else {
+                  <!-- RESERVED (confirmed or pending from another patient) -->
+                  <div
+                    class="pb-cell pb-cell--reserved"
+                    pTooltip="Créneau déjà réservé"
+                    tooltipPosition="top"
+                  >
+                    <i class="pi pi-lock pb-cell-lock"></i>
+                  </div>
+                }
+              } @else {
+                <div class="pb-cell pb-cell--off"></div>
+              }
+            }
+          }
+        }
+
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ══ BOOKING CONFIRMATION DIALOG (FLOATING) ═══════════════════════════ -->
+<p-dialog
+  [(visible)]="bookingDialogVisible"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  header="Confirmer votre rendez-vous"
+  styleClass="pb-booking-dialog"
+  [style]="{ width: '420px', maxWidth: '95vw' }"
+  appendTo="body"
+>
+  @if (pendingSlot()) {
+    <div class="pb-confirm-body">
+
+      <!-- Slot summary -->
+      <div class="pb-confirm-summary">
+        <div class="pb-confirm-icon">
+          <i class="pi pi-calendar-plus"></i>
+        </div>
+        <div class="pb-confirm-details">
+          <div class="pb-confirm-date">
+            {{ pendingSlot()!.date | date:'EEEE d MMMM yyyy':'':'fr-FR' | titlecase }}
+          </div>
+          <div class="pb-confirm-time">
+            <i class="pi pi-clock"></i> {{ pendingSlot()!.time }}
+          </div>
+          @if (doctorFirstName || doctorLastName) {
+            <div class="pb-confirm-doctor">
+              <i class="pi pi-user-md"></i> Dr. {{ doctorFirstName }} {{ doctorLastName }}
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Appointment type -->
+      <div class="pb-confirm-field">
+        <label class="pb-confirm-label">Type de consultation *</label>
+        <p-select
+          [(ngModel)]="selectedAppointmentType"
+          [options]="appointmentTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Choisir un type"
+          styleClass="w-full"
+          appendTo="body"
+        />
+      </div>
+
+      <!-- Note -->
+      <div class="pb-confirm-note">
+        <i class="pi pi-info-circle"></i>
+        <span>Votre rendez-vous sera en attente de confirmation par votre médecin.</span>
+      </div>
+
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <button type="button" class="pb-btn-secondary" (click)="bookingDialogVisible = false">
+      Annuler
+    </button>
+    <button
+      type="button"
+      class="pb-btn-primary"
+      [disabled]="submitting() || !pendingSlot()"
+      (click)="confirmBooking()"
+    >
+      @if (submitting()) {
+        <i class="pi pi-spin pi-spinner"></i> Envoi en cours…
+      } @else {
+        <i class="pi pi-check"></i> Confirmer le rendez-vous
+      }
+    </button>
+  </ng-template>
+</p-dialog>

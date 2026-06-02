@@ -4,7 +4,8 @@ import {
   DoctorProfile, PatientResponse,
   AppointmentResponse, AppointmentStatus
 } from '../models/doctor.model';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { switchMap, map } from 'rxjs/operators';
 import { AuthService } from '../../../core/auth/auth.service';
 
 @Injectable({ providedIn: 'root' })
@@ -12,7 +13,6 @@ export class DoctorStateService {
   private api = inject(DoctorApiService);
   private readonly authService = inject(AuthService);
 
-  // ── Raw signals ──────────────────────────────────────────────────────────────
   doctorProfile = signal<DoctorProfile | null>(null);
   patients      = signal<PatientResponse[]>([]);
   appointments  = signal<AppointmentResponse[]>([]);
@@ -20,7 +20,6 @@ export class DoctorStateService {
 
   activeConsultationPatient = signal<PatientResponse | null>(null);
 
-  // ── Derived / computed ───────────────────────────────────────────────────────
   patientCount = computed(() => this.patients().length);
 
   pendingRequestsCount = computed(() =>
@@ -55,22 +54,25 @@ export class DoctorStateService {
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
   );
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
   loadAll(): void {
     this.loading.set(true);
-    forkJoin({
-      profile:      this.authService.getUserProfile(),
-      patients:     this.api.getAllPatients(),
-      appointments: this.api.getAllAppointments(),
-    }).subscribe({
-      next: ({ profile, patients, appointments }) => {
+    this.authService.getUserProfile().pipe(
+      switchMap(profile => {
         if (profile.role !== 'DOCTOR') {
-          this.loading.set(false);
-          return; // guard: wrong role
+          return of({ profile, patients: [] as PatientResponse[], appointments: [] as AppointmentResponse[] });
         }
-        this.doctorProfile.set(profile as DoctorProfile);
-        this.patients.set(patients);
-        this.appointments.set(appointments);
+        return forkJoin({
+          patients:     this.api.getAllPatients(profile.id),
+          appointments: this.api.getAllAppointments(),
+        }).pipe(
+          map(({ patients, appointments }) => ({ profile, patients, appointments }))
+        );
+      })
+    ).subscribe({
+      next: (result: { profile: any; patients: PatientResponse[]; appointments: AppointmentResponse[] }) => {
+        this.doctorProfile.set(result.profile as DoctorProfile);
+        this.patients.set(result.patients);
+        this.appointments.set(result.appointments);
         this.loading.set(false);
       },
       error: () => this.loading.set(false)
@@ -103,6 +105,8 @@ export class DoctorStateService {
   }
 
   reloadPatients(): void {
-    this.api.getAllPatients().subscribe(data => this.patients.set(data));
+    const doctorId = this.doctorProfile()?.id;
+    if (!doctorId) return;
+    this.api.getAllPatients(doctorId).subscribe(data => this.patients.set(data));
   }
 }

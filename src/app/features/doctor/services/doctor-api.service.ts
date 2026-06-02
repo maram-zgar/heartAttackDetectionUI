@@ -49,8 +49,8 @@ export class DoctorApiService {
 
   // ── Patients ─────────────────────────────────────────────────────────────────
 
-  getAllPatients(): Observable<PatientResponse[]> {
-    return this.http.get<PatientResponse[]>(`${this.baseUrl}/patients`);
+  getAllPatients(doctorId: string): Observable<PatientResponse[]> {
+    return this.http.get<PatientResponse[]>(`${this.baseUrl}/patients/doctor/${doctorId}`);
   }
 
   getPatient(patientId: string): Observable<PatientResponse> {

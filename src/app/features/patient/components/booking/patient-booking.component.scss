@@ -1,0 +1,467 @@
+// patient-booking.component.scss
+// Matches the CardioConsult emerald design system used in the doctor dashboard
+
+:host {
+  --pb-bg:           var(--content-bg,   #f0fdf9);
+  --pb-surface:      var(--card-bg,      #ffffff);
+  --pb-border:       var(--card-border,  #d1fae5);
+  --pb-text:         var(--text-primary, #0f172a);
+  --pb-text-muted:   var(--text-muted,   #64748b);
+  --pb-primary:      #059669;
+  --pb-primary-light:#10b981;
+  --pb-radius:       12px;
+  --pb-radius-sm:     8px;
+  --pb-shadow:       0 4px 20px rgba(5,150,105,.08);
+
+  font-family: 'DM Sans', sans-serif;
+  display: block;
+}
+
+:host-context(.dark-mode) {
+  --pb-bg:       #0a0f1a;
+  --pb-surface:  #111827;
+  --pb-border:   #1e3a2f;
+  --pb-text:     #f1f5f9;
+  --pb-text-muted: #64748b;
+  --pb-shadow:   0 4px 20px rgba(0,0,0,.3);
+}
+
+@keyframes pb-fade-up {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+// ── Wrapper ────────────────────────────────────────────────────────────────
+.pb-wrapper {
+  animation: pb-fade-up 0.35s ease;
+}
+
+// ── Doctor card ────────────────────────────────────────────────────────────
+.pb-doctor-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  margin-bottom: 16px;
+  box-shadow: var(--pb-shadow);
+}
+
+.pb-doctor-avatar {
+  width: 48px; height: 48px; min-width: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-family: 'Sora', sans-serif;
+  font-weight: 700; font-size: 1rem;
+  box-shadow: 0 3px 10px rgba(16,185,129,0.3);
+}
+
+.pb-doctor-info { flex: 1; }
+
+.pb-doctor-name {
+  font-family: 'Sora', sans-serif;
+  font-weight: 700; font-size: 0.97rem;
+  color: var(--pb-text);
+}
+
+.pb-doctor-sub {
+  font-size: 0.78rem;
+  color: var(--pb-text-muted);
+  margin-top: 2px;
+}
+
+// ── Controls bar ──────────────────────────────────────────────────────────
+.pb-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pb-range-group {
+  display: flex;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius-sm);
+  overflow: hidden;
+}
+
+.pb-range-btn {
+  padding: 7px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--pb-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &.active {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+  }
+
+  &:hover:not(.active) { background: rgba(5,150,105,0.06); color: var(--pb-primary); }
+}
+
+.pb-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pb-nav-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  color: var(--pb-text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover { border-color: var(--pb-primary); color: var(--pb-primary); }
+}
+
+.pb-today-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  color: var(--pb-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover { border-color: var(--pb-primary); color: var(--pb-primary); }
+}
+
+// ── Legend ────────────────────────────────────────────────────────────────
+.pb-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: var(--pb-text-muted);
+}
+
+.pb-leg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.pb-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.pb-leg.available .pb-dot { background: #059669; }
+.pb-leg.reserved  .pb-dot { background: #94a3b8; }
+
+// ── Grid ──────────────────────────────────────────────────────────────────
+.pb-grid-container {
+  background: var(--pb-surface);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  overflow: auto;
+  box-shadow: var(--pb-shadow);
+}
+
+.pb-cal-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(var(--col-count), minmax(80px, 1fr));
+  min-width: max-content;
+}
+
+.pb-corner {
+  background: var(--pb-surface);
+  border-right: 1px solid var(--pb-border);
+  border-bottom: 1px solid var(--pb-border);
+  position: sticky; top: 0; left: 0; z-index: 3;
+}
+
+.pb-day-header {
+  padding: 10px 6px;
+  text-align: center;
+  background: var(--pb-surface);
+  border-right: 1px solid var(--pb-border);
+  border-bottom: 1px solid var(--pb-border);
+  position: sticky; top: 0; z-index: 2;
+
+  &.today {
+    background: rgba(5,150,105,0.08);
+    border-bottom: 2px solid #059669;
+  }
+}
+
+.pb-day-name {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--pb-text);
+  text-transform: capitalize;
+}
+
+.pb-day-off {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--pb-text-muted);
+  margin-top: 2px;
+}
+
+.pb-time-label {
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 0.66rem;
+  color: var(--pb-text-muted);
+  border-right: 1px solid var(--pb-border);
+  border-bottom: 1px solid var(--pb-border);
+  background: var(--pb-surface);
+  height: 44px;
+  position: sticky; left: 0; z-index: 1;
+}
+
+.pb-cell {
+  height: 44px;
+  border-right: 1px solid var(--pb-border);
+  border-bottom: 1px solid var(--pb-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.18s;
+  position: relative;
+  font-size: 0.72rem;
+}
+
+.pb-cell--off {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent, transparent 4px,
+    rgba(0,0,0,0.025) 4px, rgba(0,0,0,0.025) 8px
+  );
+}
+
+// Free slot — green, clickable
+.pb-cell--free {
+  background: var(--pb-available-bg, rgba(5,150,105,0.06));
+  cursor: pointer;
+  flex-direction: column;
+
+  &:hover {
+    background: rgba(5,150,105,0.16);
+    transform: scale(1.02);
+    z-index: 1;
+    box-shadow: 0 2px 8px rgba(5,150,105,0.2);
+  }
+}
+
+.pb-cell-plus {
+  font-size: 0.6rem;
+  color: #059669;
+  opacity: 0.7;
+}
+
+.pb-cell-time {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+// Reserved slot — grey, not clickable
+.pb-cell--reserved {
+  background: rgba(148,163,184,0.08);
+  cursor: not-allowed;
+}
+
+.pb-cell-lock {
+  font-size: 0.6rem;
+  color: #94a3b8;
+  opacity: 0.6;
+}
+
+// Loading / empty
+.pb-loading { padding: 16px; }
+
+.pb-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--pb-text-muted);
+  text-align: center;
+
+  .pi { font-size: 2.5rem; opacity: 0.4; }
+  p { font-size: 0.88rem; }
+}
+
+// ── Booking dialog styles ─────────────────────────────────────────────────
+
+::ng-deep .pb-booking-dialog {
+  .p-dialog-header {
+    background: linear-gradient(135deg, #022c22 0%, #047857 100%);
+    color: #fff;
+    border-radius: 14px 14px 0 0;
+    padding: 18px 24px;
+
+    .p-dialog-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .p-dialog-header-icon {
+      color: rgba(255,255,255,0.7);
+      &:hover { color: #fff; background: rgba(255,255,255,0.1); }
+    }
+  }
+
+  .p-dialog-content {
+    padding: 0;
+  }
+
+  .p-dialog-footer {
+    border-top: 1px solid #d1fae5;
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+}
+
+.pb-confirm-body {
+  padding: 24px 24px 16px;
+}
+
+// Slot summary banner
+.pb-confirm-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(5,150,105,0.08) 0%, rgba(16,185,129,0.04) 100%);
+  border: 1px solid rgba(5,150,105,0.2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.pb-confirm-icon {
+  width: 44px; height: 44px; min-width: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 12px rgba(5,150,105,0.25);
+}
+
+.pb-confirm-details { flex: 1; }
+
+.pb-confirm-date {
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.pb-confirm-time,
+.pb-confirm-doctor {
+  font-size: 0.82rem;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+
+  .pi { font-size: 0.78rem; color: #059669; }
+}
+
+// Type field
+.pb-confirm-field {
+  margin-bottom: 16px;
+}
+
+.pb-confirm-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+// Note
+.pb-confirm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(245,158,11,0.06);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #92400e;
+
+  .pi { color: #d97706; font-size: 0.85rem; margin-top: 1px; }
+}
+
+// Buttons
+.pb-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 0.87rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 3px 10px rgba(5,150,105,0.25);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 16px rgba(5,150,105,0.35);
+  }
+
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+}
+
+.pb-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.87rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover { background: #f8fafc; border-color: #cbd5e1; }
+}
+
+// Dark mode dialog
+:host-context(.dark-mode) {
+  .pb-confirm-date { color: #f1f5f9; }
+  .pb-confirm-time, .pb-confirm-doctor { color: #94a3b8; }
+  .pb-btn-secondary { border-color: #1e3a2f; color: #94a3b8; &:hover { background: #0d1f17; } }
+}
