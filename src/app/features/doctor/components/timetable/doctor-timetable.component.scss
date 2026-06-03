@@ -1,135 +1,141 @@
-// ── Calendar grid (Google Calendar style) ─────────────────────────────────
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
-.tt-cal-grid {
-  display: grid;
-  grid-template-columns: 56px repeat(var(--col-count), 1fr);
-  overflow-x: auto;
+:host {
+  --tt-bg:           #0d1f17;
+  --tt-surface:      #111827;
+  --tt-surface-2:    #1e2d24;
+  --tt-border:       #1e3a2f;
+  --tt-text:         #e2e8f0;
+  --tt-text-muted:   #64748b;
+  --tt-emerald:      #10b981;
+  --tt-emerald-dark: #059669;
+  --tt-available-bg: rgba(5, 150, 105, 0.12);
+  --tt-pending:      #f59e0b;
+  --tt-pending-bg:   rgba(245, 158, 11, 0.1);
+  --tt-confirmed:    #10b981;
+  --tt-confirmed-bg: rgba(16, 185, 129, 0.1);
+  --tt-completed:    #64748b;
+  --tt-completed-bg: rgba(100, 116, 139, 0.1);
+  --tt-radius:       14px;
+  --tt-radius-sm:    10px;
+
+  font-family: 'DM Sans', sans-serif;
+  display: block;
 }
 
-.tt-corner {
-  border-right: 1px solid var(--tt-border);
-  border-bottom: 1px solid var(--tt-border);
-  background: var(--tt-surface);
-}
-
-.tt-day-header {
-  padding: .625rem .5rem;
-  text-align: center;
-  border-bottom: 1px solid var(--tt-border);
-  border-right: 1px solid var(--tt-border);
-  background: var(--tt-surface-2);
+// ── Wrapper ────────────────────────────────────────────────────────────────
+.tt-wrapper {
+  background: var(--tt-bg);
+  border-radius: var(--tt-radius);
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+}
+
+// ── Header ─────────────────────────────────────────────────────────────────
+.tt-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 3px;
-
-  &.today { background: rgba(5,150,105,.08); }
-  &.today .tt-day-name { color: var(--tt-emerald); font-weight: 700; }
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
-.tt-cell--clickable {
-  cursor: pointer;
-  &:hover {
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.3);
-    .pi-plus { opacity: 0.7 !important; }
-  }
+.tt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.tt-day-name    { font-size: .78125rem; color: var(--tt-text); }
-.tt-day-off     { font-size: .6875rem; color: var(--tt-text-muted); }
-.tt-day-appt-count {
-  font-size: .6875rem;
-  color: var(--tt-emerald);
-  background: var(--tt-available-bg);
+.tt-icon {
+  width: 38px; height: 38px;
   border-radius: 10px;
-  padding: 1px 6px;
+  background: var(--tt-available-bg);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tt-emerald);
+  font-size: 1rem;
 }
 
-// Slot cells
-.tt-cell {
-  min-height: 52px;
-  border-right: 1px solid var(--tt-border);
-  border-bottom: 1px solid var(--tt-border);
-  position: relative;
-  transition: all .15s;
-}
-
-.tt-cell--off {
-  background: rgba(0,0,0,.12);
-  background-image: repeating-linear-gradient(
-    45deg, transparent, transparent 4px,
-    rgba(255,255,255,.012) 4px, rgba(255,255,255,.012) 8px
-  );
-}
-
-.tt-cell--empty { background: transparent; }
-
-.tt-cell--free {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-
-  &:hover {
-    background: var(--tt-available-bg);
-    border-color: rgba(5,150,105,.2);
-  }
-}
-
-.tt-cell-time-label {
-  font-size: .65rem;
-  color: rgba(255,255,255,.2);
-}
-
-// Booked cells — Google Calendar style
-.tt-cell--booked {
-  cursor: pointer;
-  padding: .3rem .4rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border-radius: 4px;
-  margin: 1px;
-  border-left: 3px solid transparent;
-  overflow: hidden;
-  transition: filter .15s;
-
-  animation: tt-pop-in .24s ease both;
-  &:hover { filter: brightness(1.08); transform: translateY(-1px); }
-
-  // Status-based border colour
-  &.pending   { border-left-color: var(--tt-pending);   background: var(--tt-pending-bg); }
-  &.confirmed { border-left-color: var(--tt-confirmed); background: var(--tt-confirmed-bg); }
-  &.completed { border-left-color: var(--tt-completed); background: var(--tt-completed-bg); }
-}
-
-// Appointment type colour overrides (left accent)
-.type-consult  { border-left-color: #059669 !important; }
-.type-checkup  { border-left-color: #3b82f6 !important; }
-.type-surgery  { border-left-color: #ef4444 !important; }
-.type-followup { border-left-color: #d97706 !important; }
-
-.tt-cell-patient-name {
-  font-size: .7rem;
+.tt-title {
+  font-family: 'Sora', sans-serif;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--tt-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0 0 2px;
 }
 
-.tt-cell-type-tag {
-  font-size: .625rem;
+.tt-subtitle {
+  font-size: 0.78rem;
   color: var(--tt-text-muted);
-  white-space: nowrap;
+  margin: 0;
+}
+
+.tt-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tt-range-group {
+  display: flex;
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-border);
+  border-radius: var(--tt-radius-sm);
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.tt-range-btn {
+  padding: 0.45rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tt-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+
+  &.active { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+  &:hover:not(.active) { background: var(--tt-available-bg); color: var(--tt-emerald); }
+}
+
+.tt-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tt-nav-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-border);
+  color: var(--tt-text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover { border-color: var(--tt-emerald); color: var(--tt-emerald); }
+}
+
+.tt-today-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-border);
+  color: var(--tt-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+
+  &:hover { border-color: var(--tt-emerald); color: var(--tt-emerald); }
 }
 
 // ── Work days bar ──────────────────────────────────────────────────────────
-
 .tt-workdays-bar {
   display: flex;
   flex-wrap: wrap;
@@ -153,7 +159,6 @@
 
 .tt-pill-day   { font-weight: 700; color: var(--tt-emerald); }
 .tt-pill-hours { color: var(--tt-text); }
-.tt-pill-slots { color: var(--tt-text-muted); }
 
 .tt-no-schedule {
   display: flex;
@@ -164,8 +169,246 @@
   i { color: var(--tt-emerald); }
 }
 
-// ── Setup dialog grid ──────────────────────────────────────────────────────
+// ── Legend ─────────────────────────────────────────────────────────────────
+.tt-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.76rem;
+  color: var(--tt-text-muted);
+}
 
+.tt-leg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.tt-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.tt-leg.available .tt-dot { background: #059669; }
+.tt-leg.pending   .tt-dot { background: #f59e0b; }
+.tt-leg.confirmed .tt-dot { background: #10b981; }
+.tt-leg.completed .tt-dot { background: #64748b; }
+.tt-leg.cancelled .tt-dot { background: rgba(148,163,184,.5); }
+
+// ── Grid container ─────────────────────────────────────────────────────────
+.tt-grid-container {
+  background: var(--tt-surface);
+  border: 1px solid var(--tt-border);
+  border-radius: var(--tt-radius);
+  overflow: auto;
+}
+
+// ── Calendar grid (Google Calendar style) ─────────────────────────────────
+.tt-cal-grid {
+  display: grid;
+  grid-template-columns: 56px repeat(var(--col-count), 1fr);
+  min-width: max-content;
+}
+
+.tt-corner {
+  border-right: 1px solid var(--tt-border);
+  border-bottom: 1px solid var(--tt-border);
+  background: var(--tt-surface);
+  position: sticky; top: 0; left: 0; z-index: 3;
+}
+
+.tt-day-header {
+  padding: .625rem .5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--tt-border);
+  border-right: 1px solid var(--tt-border);
+  background: var(--tt-surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  position: sticky; top: 0; z-index: 2;
+
+  &.today { background: rgba(5,150,105,.08); }
+  &.today .tt-day-name { color: var(--tt-emerald); font-weight: 700; }
+}
+
+.tt-day-name { font-size: .78125rem; color: var(--tt-text); font-weight: 600; text-transform: capitalize; }
+.tt-day-off  { font-size: .6875rem; color: var(--tt-text-muted); }
+.tt-day-appt-count {
+  font-size: .6875rem;
+  color: var(--tt-emerald);
+  background: var(--tt-available-bg);
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+.tt-time-label {
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 0.65rem;
+  color: var(--tt-text-muted);
+  border-right: 1px solid var(--tt-border);
+  border-bottom: 1px solid var(--tt-border);
+  background: var(--tt-surface);
+  height: 52px;
+  position: sticky; left: 0; z-index: 1;
+}
+
+.tt-cell {
+  min-height: 52px;
+  border-right: 1px solid var(--tt-border);
+  border-bottom: 1px solid var(--tt-border);
+  position: relative;
+  transition: all .15s;
+}
+
+.tt-cell--off {
+  background: rgba(0,0,0,.12);
+  background-image: repeating-linear-gradient(
+    45deg, transparent, transparent 4px,
+    rgba(255,255,255,.012) 4px, rgba(255,255,255,.012) 8px
+  );
+}
+
+.tt-cell--empty { background: transparent; }
+
+.tt-cell--clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &:hover {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+    .pi-plus { opacity: 0.7 !important; }
+  }
+}
+
+.tt-cell--free {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+
+  &:hover {
+    background: var(--tt-available-bg);
+    border-color: rgba(5,150,105,.2);
+  }
+}
+
+.tt-cell-time-label {
+  font-size: .65rem;
+  color: rgba(255,255,255,.2);
+}
+
+// Booked cells
+.tt-cell--booked {
+  cursor: pointer;
+  padding: .3rem .4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 4px;
+  margin: 1px;
+  border-left: 3px solid transparent;
+  overflow: hidden;
+  transition: filter .15s;
+  animation: tt-pop-in .24s ease both;
+
+  &:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+  &.pending   { border-left-color: var(--tt-pending);   background: var(--tt-pending-bg); }
+  &.confirmed { border-left-color: var(--tt-confirmed); background: var(--tt-confirmed-bg); }
+  &.completed { border-left-color: var(--tt-completed); background: var(--tt-completed-bg); }
+}
+
+.type-consult  { border-left-color: #059669 !important; }
+.type-checkup  { border-left-color: #3b82f6 !important; }
+.type-surgery  { border-left-color: #ef4444 !important; }
+.type-followup { border-left-color: #d97706 !important; }
+
+.tt-cell-patient-name {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--tt-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-cell-type-tag {
+  font-size: .625rem;
+  color: var(--tt-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-cell-pulse {
+  position: absolute;
+  top: 3px; right: 3px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--tt-pending);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+// ── Loading / empty ────────────────────────────────────────────────────────
+.tt-loading { padding: 1rem; }
+
+.tt-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--tt-text-muted);
+  text-align: center;
+
+  .pi { font-size: 2.5rem; opacity: 0.35; }
+  p { font-size: 0.88rem; margin: 0; }
+}
+
+.tt-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 1rem;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
+
+// ── Setup button ───────────────────────────────────────────────────────────
+.tt-setup-btn {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  border-radius: var(--tt-radius-sm);
+  background: var(--tt-surface-2);
+  border: 1px solid var(--tt-border);
+  color: var(--tt-text);
+  font-size: .8125rem;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all .2s;
+
+  &:hover { border-color: var(--tt-emerald); color: var(--tt-emerald); }
+}
+
+// ── Setup dialog grid ──────────────────────────────────────────────────────
 .tt-setup-grid {
   display: flex;
   flex-direction: column;
@@ -199,6 +442,15 @@
   color: var(--tt-text);
 }
 
+.tt-day-hours-preview {
+  font-size: .78125rem;
+  color: var(--tt-emerald);
+  padding: .2rem .6rem;
+  background: var(--tt-available-bg);
+  border-radius: 20px;
+  margin-left: auto;
+}
+
 .tt-day-config-times {
   display: flex;
   align-items: flex-end;
@@ -220,51 +472,63 @@
   }
 }
 
-.tt-day-preview {
-  font-size: .78125rem;
-  color: var(--tt-emerald);
-  padding: .375rem .75rem;
-  background: var(--tt-available-bg);
-  border-radius: 20px;
-  align-self: flex-end;
-  white-space: nowrap;
-}
-
-// ── Setup button ───────────────────────────────────────────────────────────
-
-.tt-setup-btn {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .5rem 1rem;
-  border-radius: var(--tt-radius-sm);
+.tt-time-input {
+  padding: .45rem .65rem;
+  border-radius: 8px;
   background: var(--tt-surface-2);
   border: 1px solid var(--tt-border);
   color: var(--tt-text);
-  font-size: .8125rem;
+  font-size: .875rem;
   font-family: 'DM Sans', sans-serif;
-  cursor: pointer;
-  transition: all .2s;
+  outline: none;
+  transition: border-color .2s;
 
-  &:hover { border-color: var(--tt-emerald); color: var(--tt-emerald); }
+  &:focus { border-color: var(--tt-emerald); }
 }
 
-// ── Type dots in legend ────────────────────────────────────────────────────
+// ── Dialog internals ───────────────────────────────────────────────────────
+:host ::ng-deep .tt-dialog {
+  .p-dialog-header {
+    background: var(--tt-surface);
+    color: var(--tt-text);
+    border-bottom: 1px solid var(--tt-border);
+    font-family: 'Sora', sans-serif;
+    padding: 1rem 1.25rem;
+  }
 
-.tt-leg-sep { width: 1px; background: var(--tt-border); height: 16px; margin: 0 .25rem; }
+  .p-dialog-content {
+    background: var(--tt-surface);
+    color: var(--tt-text);
+    padding: 1.25rem;
+  }
 
-.tt-type-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  display: inline-block;
-  &.type-consult  { background: #059669; }
-  &.type-checkup  { background: #3b82f6; }
-  &.type-surgery  { background: #ef4444; }
-  &.type-followup { background: #d97706; }
+  .p-dialog-footer {
+    background: var(--tt-surface);
+    border-top: 1px solid var(--tt-border);
+    padding: 0.875rem 1.25rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+
+  .p-dialog { border-radius: 16px; overflow: hidden; border: 1px solid var(--tt-border); }
 }
 
-// ── Appointment detail card ────────────────────────────────────────────────
+// ── Slot detail dialog ─────────────────────────────────────────────────────
+.tt-slot-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tt-slot-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--tt-text);
+  i { color: var(--tt-text-muted); font-size: 0.85rem; }
+}
 
 .tt-appt-detail-card {
   background: var(--tt-surface-2);
@@ -296,7 +560,93 @@
   border-radius: var(--tt-radius-sm);
 }
 
+.tt-slot-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+// ── Buttons ────────────────────────────────────────────────────────────────
+.tt-btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.55rem 1.1rem;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 0.86rem; font-weight: 600;
+  border: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(5,150,105,.25);
+
+  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(5,150,105,.35); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.tt-btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.55rem 1rem;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--tt-text-muted);
+  font-size: 0.86rem; font-weight: 600;
+  border: 1px solid var(--tt-border);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+
+  &:hover { border-color: var(--tt-text-muted); color: var(--tt-text); }
+}
+
+.tt-btn-confirm {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  background: var(--tt-available-bg);
+  color: var(--tt-emerald);
+  border: 1px solid rgba(16,185,129,.25);
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+
+  &:hover { background: rgba(5,150,105,.2); }
+}
+
+.tt-btn-cancel {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  background: rgba(244,63,94,.06);
+  color: #f43f5e;
+  border: 1px solid rgba(244,63,94,.2);
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+
+  &:hover { background: rgba(244,63,94,.12); }
+}
+
+// ── Type dots ──────────────────────────────────────────────────────────────
+.tt-leg-sep { width: 1px; background: var(--tt-border); height: 16px; margin: 0 .25rem; }
+
+.tt-type-dot {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+  &.type-consult  { background: #059669; }
+  &.type-checkup  { background: #3b82f6; }
+  &.type-surgery  { background: #ef4444; }
+  &.type-followup { background: #d97706; }
+}
+
+// ── Animations ─────────────────────────────────────────────────────────────
 @keyframes tt-pop-in {
   from { opacity: 0; transform: translateY(4px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
 }

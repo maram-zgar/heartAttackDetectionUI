@@ -282,7 +282,7 @@
           </button>
         </div>
 
-        <div class="doc-card doc-monitor-toolbar">
+        <div class="doc-card doc-monitor-toolbar" style="z-index: 999;">
           <p-select
             [options]="rangeOptions"
             [ngModel]="monitorRange()"
@@ -475,11 +475,11 @@
                 </div>
                 <div>
                   <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Créé le</p>
-                  <p>{{ formatDate(medicalFile()!.createdAt) }}</p>
-                </div>
+                  <p>{{ formatDate(medicalFile()!.creationDate!) }}</p>
+                </div>  
                 <div>
                   <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Dernière mise à jour</p>
-                  <p>{{ formatDate(medicalFile()!.updatedAt) }}</p>
+                  <p>{{ formatDate(medicalFile()!.lastUpdateDate!) }}</p>
                 </div>
                 @if (medicalFile()!.riskLevel) {
                   <div>

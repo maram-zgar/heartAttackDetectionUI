@@ -84,8 +84,8 @@ export interface MedicalFile {
   patientId: string;
   patientFirstName?: string;
   patientLastName?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  creationDate?: string;
+  lastUpdateDate?: string;
   consultations: Consultation[];
   notes?: MedicalNote[];
   riskLevel?: 'low' | 'medium' | 'high';

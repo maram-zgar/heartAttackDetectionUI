@@ -46,7 +46,7 @@ export class DoctorService {
   private http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
-  private readonly baseUrl = 'http://localhost:8080/api/v1';
+  private readonly baseUrl = '/api/v1';
 
   getPatients(doctorId: string): Observable<Patient[]> {
     return this.http.get<Patient[]>(`${this.baseUrl}/patients/doctor/${doctorId}`);
@@ -82,6 +82,10 @@ export class DoctorService {
 
   getDoctorById(id: string): Observable<{ firstName: string; lastName: string }> {
     return this.http.get<{ firstName: string; lastName: string }>(`${this.baseUrl}/doctors/${id}`);
+  }
+
+  getAllDoctors(): Observable<{ id: string; firstName: string; lastName: string }[]> {
+    return this.http.get<{ id: string; firstName: string; lastName: string }[]>(`${this.baseUrl}/doctors`);
   }
 
   updateDoctor(data: any): Observable<any> {

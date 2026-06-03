@@ -1345,7 +1345,7 @@ onTimetableSlotSelected(payload: string): void {
       this.medicalFile.set(this.withSortedConsultations({
         ...current,
         consultations: [consultation, ...current.consultations],
-        updatedAt: new Date().toISOString(),
+        lastUpdateDate: new Date().toISOString(),
       }));
     } else {
       const patient = this.selectedPatient();
@@ -1367,6 +1367,10 @@ onTimetableSlotSelected(payload: string): void {
 
   private toAppointmentIdentity(appointment: Appointment): Partial<AppointmentRequest> {
     const patient = this.patients().find(p => String(p.id) === String(appointment.patientId));
+
+    console.log("Mapping appointment identity for", appointment);
+    console.log("Resolved patient", patient);
+
     return {
       patientId:        String(appointment.patientId),
       doctorId:         appointment.doctorId,
@@ -1377,6 +1381,8 @@ onTimetableSlotSelected(payload: string): void {
   }
 
   private withSortedConsultations(file: MedicalFile): MedicalFile {
+    console.log("Sorting consultations for medical file", file);
+
     return {
       ...file,
       consultations: [...(file.consultations ?? [])].sort(

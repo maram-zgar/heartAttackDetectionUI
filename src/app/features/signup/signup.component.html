@@ -1,10 +1,9 @@
 <!-- signup.component.html -->
 <div class="auth-shell">
 
-  <!-- ── Hero Panel ── -->
+  <!-- ══ HERO PANEL ══════════════════════════════════════════════════════ -->
   <div class="auth-hero">
 
-    <!-- ECG decoration -->
     <div class="ecg-decoration">
       <svg viewBox="0 0 500 80" preserveAspectRatio="none">
         <polyline points="
@@ -18,29 +17,25 @@
       </svg>
     </div>
 
-    <!-- Brand -->
     <div class="auth-hero-brand">
-      <div class="brand-icon">
-        <i class="pi pi-heart-fill"></i>
-      </div>
+      <div class="brand-icon"><i class="pi pi-heart-fill"></i></div>
       <span class="brand-name">CardioSense</span>
     </div>
 
-    <!-- Main content -->
     <div class="auth-hero-content">
       <div class="hero-eyebrow">
         <div class="pulse-dot"></div>
         <span>Plateforme cardiologique</span>
       </div>
       <h1>
-        Rejoignez la <span class="accent">première ligne</span> de soins
+        Rejoignez la <span class="accent">première ligne</span><br>de soins cardiaques
       </h1>
       <p>
-        Créez votre compte et commencez à surveiller vos patients avec des outils d'analyse avancés.
+        Créez votre compte patient ou médecin et bénéficiez d'un suivi cardiovasculaire
+        intelligent et sécurisé.
       </p>
     </div>
 
-    <!-- Stats -->
     <div class="auth-hero-stats">
       <div class="stat-pill">
         <div class="stat-icon"><i class="pi pi-bolt"></i></div>
@@ -48,7 +43,7 @@
       </div>
       <div class="stat-pill">
         <div class="stat-icon"><i class="pi pi-shield"></i></div>
-        <span>Données sécurisées & conformes RGPD</span>
+        <span>Données sécurisées &amp; RGPD</span>
       </div>
       <div class="stat-pill">
         <div class="stat-icon"><i class="pi pi-chart-line"></i></div>
@@ -56,173 +51,206 @@
       </div>
     </div>
 
+    <!-- Step progress — hero side -->
+    <div class="hero-steps">
+      <div class="hero-step" [class.active]="currentStep === 1" [class.done]="currentStep > 1">
+        <div class="hero-step-num">{{ currentStep > 1 ? '✓' : '1' }}</div>
+        <span>Connexion</span>
+      </div>
+      <div class="hero-step-line"></div>
+      <div class="hero-step" [class.active]="currentStep === 2">
+        <div class="hero-step-num">2</div>
+        <span>Profil</span>
+      </div>
+    </div>
+
   </div>
 
-  <!-- ── Form Panel ── -->
+  <!-- ══ FORM PANEL ═══════════════════════════════════════════════════════ -->
   <div class="auth-form-panel">
 
-    <!-- Dark mode toggle -->
     <div class="dark-toggle">
-      <button (click)="toggleDarkMode()" [title]="isDark ? 'Mode clair' : 'Mode sombre'">
+      <button type="button" (click)="toggleDarkMode()" [title]="isDark ? 'Mode clair' : 'Mode sombre'">
         <i [class]="isDark ? 'pi pi-sun' : 'pi pi-moon'"></i>
       </button>
     </div>
 
     <div class="auth-form-inner">
 
-      <div class="auth-form-header">
-        <h2>Créer un compte</h2>
-        <p>Remplissez vos informations pour commencer</p>
+      <!-- Step progress bar -->
+      <div class="step-indicator">
+        <div class="step-track">
+          <div class="step-fill" [style.width]="currentStep === 1 ? '50%' : '100%'"></div>
+        </div>
+        <span class="step-label">Étape {{ currentStep }} / 2</span>
       </div>
 
+      <!-- Error banner -->
       @if (error()) {
-        <p-message severity="error" [text]="error()!" styleClass="w-full mb-3"></p-message>
+        <div class="auth-error-box">
+          <i class="pi pi-exclamation-circle"></i>
+          <span>{{ error() }}</span>
+        </div>
       }
 
       <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" novalidate>
 
-        <!-- First + Last name -->
-        <div class="auth-name-row">
-          <div class="auth-field" style="margin-bottom: 0;">
-            <label for="firstName">Prénom</label>
-            <input
-              pInputText
-              id="firstName"
-              placeholder="Jean"
-              formControlName="firstName"
-              class="w-full"
-              [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('firstName') }"
-            />
-            @if (isFieldInvalid('firstName')) {
-              <small class="field-error"><i class="pi pi-exclamation-circle"></i> Requis</small>
-            }
+        <!-- ══ STEP 1 — Credentials ════════════════════════════════ -->
+        @if (currentStep === 1) {
+
+          <div class="form-step-header">
+            <h2>Créer un compte</h2>
+            <p>Vos informations de connexion à la plateforme.</p>
           </div>
-          <div class="auth-field" style="margin-bottom: 0;">
-            <label for="lastName">Nom</label>
-            <input
-              pInputText
-              id="lastName"
-              placeholder="Dupont"
-              formControlName="lastName"
-              class="w-full"
-              [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('lastName') }"
-            />
-            @if (isFieldInvalid('lastName')) {
-              <small class="field-error"><i class="pi pi-exclamation-circle"></i> Requis</small>
-            }
-          </div>
-        </div>
 
-        <!-- Email -->
-        <div class="auth-field">
-          <label for="email">Adresse e-mail</label>
-          <p-iconfield>
-            <p-inputicon styleClass="pi pi-envelope" />
-            <input
-              pInputText
-              id="email"
-              type="email"
-              placeholder="docteur@hopital.fr"
-              formControlName="email"
-              class="w-full"
-              [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('email') }"
-            />
-          </p-iconfield>
-          @if (isFieldInvalid('email')) {
-            <small class="field-error">
-              <i class="pi pi-exclamation-circle"></i>
-              {{ email.errors?.['required'] ? 'L\'e-mail est requis.' : 'E-mail invalide.' }}
-            </small>
-          }
-        </div>
-
-        <!-- Role -->
-        <div class="auth-field">
-          <label for="role">Rôle</label>
-          <p-select
-            inputId="role"
-            [options]="roles"
-            formControlName="role"
-            placeholder="Sélectionnez votre rôle"
-            optionLabel="label"
-            optionValue="value"
-            styleClass="w-full"
-            [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('role') }"
-          />
-          @if (isFieldInvalid('role')) {
-            <small class="field-error"><i class="pi pi-exclamation-circle"></i> Veuillez sélectionner un rôle.</small>
-          }
-        </div>
-
-        <!-- Password -->
-        <div class="auth-field">
-          <label for="password">Mot de passe</label>
-          <p-password
-            inputId="password"
-            formControlName="password"
-            styleClass="w-full"
-            [inputStyle]="{ width: '100%' }"
-            [toggleMask]="true"
-            [feedback]="false"
-            placeholder="Minimum 8 caractères"
-            [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('password') }"
-          />
-          @if (isFieldInvalid('password')) {
-            <small class="field-error">
-              <i class="pi pi-exclamation-circle"></i>
-              {{ password.errors?.['required'] ? 'Le mot de passe est requis.' : 'Min. 8 car. avec majuscule, chiffre et symbole.' }}
-            </small>
-          }
-          @if (password.value) {
-            <div class="password-strength-bar">
-              <div
-                class="strength-fill"
-                [style.width.%]="getPasswordStrength().level * 25"
-                [class]="'level-' + getPasswordStrength().level"
-              ></div>
+          <!-- Name row -->
+          <div class="name-row">
+            <div class="auth-field">
+              <label for="firstName">Prénom <span class="req">*</span></label>
+              <input pInputText id="firstName" formControlName="firstName"
+                     placeholder="Jean" class="w-full"
+                     [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('firstName') }" />
+              @if (isFieldInvalid('firstName')) {
+                <small class="field-error"><i class="pi pi-exclamation-circle"></i> Requis (2 car. min)</small>
+              }
             </div>
-            @if (getPasswordStrength().label) {
-              <small class="strength-label level-{{ getPasswordStrength().level }}">
-                {{ getPasswordStrength().label }}
+            <div class="auth-field">
+              <label for="lastName">Nom <span class="req">*</span></label>
+              <input pInputText id="lastName" formControlName="lastName"
+                     placeholder="Dupont" class="w-full"
+                     [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('lastName') }" />
+              @if (isFieldInvalid('lastName')) {
+                <small class="field-error"><i class="pi pi-exclamation-circle"></i> Requis</small>
+              }
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="auth-field">
+            <label for="email">Adresse e-mail <span class="req">*</span></label>
+            <p-iconfield>
+              <p-inputicon styleClass="pi pi-envelope" />
+              <input pInputText id="email" type="email" formControlName="email"
+                     placeholder="jean.dupont@email.fr" class="w-full"
+                     [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('email') }" />
+            </p-iconfield>
+            @if (isFieldInvalid('email')) {
+              <small class="field-error">
+                <i class="pi pi-exclamation-circle"></i>
+                {{ email.errors?.['required'] ? 'E-mail requis.' : 'Adresse e-mail invalide.' }}
               </small>
             }
-          }
-        </div>
+          </div>
 
-        <!-- Confirm password -->
-        <div class="auth-field">
-          <label for="confirmPassword">Confirmer le mot de passe</label>
-          <p-password
-            inputId="confirmPassword"
-            formControlName="confirmPassword"
-            styleClass="w-full"
-            [inputStyle]="{ width: '100%' }"
-            [toggleMask]="true"
-            [feedback]="false"
-            placeholder="••••••••"
-            [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('confirmPassword') }"
-          />
-          @if (isFieldInvalid('confirmPassword')) {
-            <small class="field-error">
-              <i class="pi pi-exclamation-circle"></i>
-              {{ confirmPassword.errors?.['required'] ? 'Confirmation requise.' : 'Les mots de passe ne correspondent pas.' }}
-            </small>
-          }
-        </div>
+          <!-- Password -->
+          <div class="auth-field">
+            <label for="password">Mot de passe <span class="req">*</span></label>
+            <p-password inputId="password" formControlName="password"
+                        styleClass="w-full" [inputStyle]="{ width: '100%' }"
+                        [toggleMask]="true" [feedback]="false"
+                        placeholder="Min. 8 car. · Maj · Chiffre · Symbole"
+                        [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('password') }" />
+            @if (password.value) {
+              <div class="strength-bar">
+                <div class="strength-fill" [class]="'level-' + getPasswordStrength().level"
+                     [style.width.%]="getPasswordStrength().level * 25"></div>
+              </div>
+              @if (getPasswordStrength().label) {
+                <span class="strength-text" [class]="'level-' + getPasswordStrength().level">
+                  {{ getPasswordStrength().label }}
+                </span>
+              }
+            }
+            @if (isFieldInvalid('password')) {
+              <small class="field-error">
+                <i class="pi pi-exclamation-circle"></i>
+                {{ password.errors?.['required'] ? 'Requis.' : 'Min. 8 car. · Maj · Chiffre · Symbole' }}
+              </small>
+            }
+          </div>
 
-        <!-- Submit -->
-        <p-button
-          type="submit"
-          label="Créer mon compte"
-          icon="pi pi-user-plus"
-          styleClass="w-full"
-          [loading]="loading()"
-        />
+          <!-- Confirm password -->
+          <div class="auth-field">
+            <label for="confirmPassword">Confirmer le mot de passe <span class="req">*</span></label>
+            <p-password inputId="confirmPassword" formControlName="confirmPassword"
+                        styleClass="w-full" [inputStyle]="{ width: '100%' }"
+                        [toggleMask]="true" [feedback]="false"
+                        placeholder="••••••••"
+                        [ngClass]="{ 'ng-invalid ng-dirty': isFieldInvalid('confirmPassword') }" />
+            @if (signupForm.hasError('passwordMismatch') && confirmPassword.touched) {
+              <small class="field-error">
+                <i class="pi pi-exclamation-circle"></i> Les mots de passe ne correspondent pas.
+              </small>
+            }
+          </div>
 
-        <div class="auth-footer-link">
-          Déjà un compte ?
-          <a routerLink="/auth/authenticate">Se connecter</a>
-        </div>
+          <button type="button" class="btn-next" (click)="nextStep()">
+            Continuer &nbsp;<i class="pi pi-arrow-right"></i>
+          </button>
+
+          <div class="auth-footer-link">
+            Déjà un compte ? <a routerLink="/auth/authenticate">Se connecter</a>
+          </div>
+
+        }
+
+        <!-- ══ STEP 2 — Personal info ══════════════════════════════ -->
+        @if (currentStep === 2) {
+
+          <div class="form-step-header">
+            <h2>Informations personnelles</h2>
+            <p>Optionnel — aide votre médecin à préparer votre suivi.</p>
+          </div>
+
+          <!-- Summary of step 1 -->
+          <div class="summary-card">
+            <div class="summary-avatar">
+              {{ (firstName.value[0] ?? '') }}{{ (lastName.value[0] ?? '') }}
+            </div>
+            <div class="summary-info">
+              <strong>{{ firstName.value }} {{ lastName.value }}</strong>
+              <span>{{ email.value }}</span>
+              <span class="summary-role">Patient</span>
+            </div>
+          </div>
+
+          <!-- Date of birth -->
+          <div class="auth-field">
+            <label for="dateOfBirth">Date de naissance</label>
+            <p-datepicker inputId="dateOfBirth" formControlName="dateOfBirth"
+                          [showIcon]="true" dateFormat="dd/mm/yy"
+                          [maxDate]="maxDate" placeholder="JJ/MM/AAAA"
+                          styleClass="w-full" />
+            @if (computedAge !== null) {
+              <div class="age-chip">
+                <i class="pi pi-user"></i>
+                <span>{{ computedAge }} ans</span>
+              </div>
+            }
+          </div>
+
+          <!-- Gender -->
+          <div class="auth-field">
+            <label for="gender">Genre</label>
+            <p-select inputId="gender" formControlName="gender"
+                      [options]="genderOptions" optionLabel="label" optionValue="value"
+                      placeholder="Sélectionnez" styleClass="w-full" />
+          </div>
+
+          <div class="step2-actions">
+            <button type="button" class="btn-back" (click)="prevStep()">
+              <i class="pi pi-arrow-left"></i> Retour
+            </button>
+            <button type="submit" class="btn-submit" [disabled]="loading()">
+              @if (loading()) {
+                <i class="pi pi-spin pi-spinner"></i>&nbsp;Création...
+              } @else {
+                <i class="pi pi-check-circle"></i>&nbsp;Créer mon compte
+              }
+            </button>
+          </div>
+
+        }
 
       </form>
     </div>
