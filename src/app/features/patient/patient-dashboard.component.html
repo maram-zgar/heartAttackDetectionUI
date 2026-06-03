@@ -1,37 +1,42 @@
-﻿<p-toast position="top-right" />
+﻿<!-- patient-dashboard.component.html -->
+<p-toast position="top-right" />
 <p-confirmDialog />
 
 <div class="cs-shell" [class.dark-mode]="isDark">
 
   <!-- ══ SIDEBAR ══════════════════════════════════════════════════════════ -->
   <aside class="cs-sidebar" [class.collapsed]="sidebarCollapsed()">
+
     <div class="cs-brand">
       <div class="cs-brand-icon">
         <i class="pi pi-heart-fill cs-heartbeat"></i>
       </div>
-      <span class="cs-brand-name" *ngIf="!sidebarCollapsed()">CardioSense</span>
+      @if (!sidebarCollapsed()) {
+        <span class="cs-brand-name">CardioSense</span>
+      }
     </div>
 
     <nav class="cs-nav">
-      <button
-        *ngFor="let item of navItems"
-        class="cs-nav-item"
-        [class.active]="activeNav() === item.id"
-        (click)="navigateTo(item.id)"
-        [pTooltip]="sidebarCollapsed() ? item.label : ''"
-        tooltipPosition="right"
-      >
-        <i class="pi {{ item.icon }}"></i>
-        <span *ngIf="!sidebarCollapsed()">{{ item.label }}</span>
-        <span class="cs-active-bar" *ngIf="activeNav() === item.id"></span>
-      </button>
+      @for (item of navItems; track item.id) {
+        <button type="button" class="cs-nav-item"
+          [class.active]="activeNav() === item.id"
+          (click)="navigateTo(item.id)"
+          [pTooltip]="sidebarCollapsed() ? item.label : ''"
+          tooltipPosition="right">
+          <i class="pi {{ item.icon }}"></i>
+          @if (!sidebarCollapsed()) { <span>{{ item.label }}</span> }
+          @if (activeNav() === item.id) { <span class="cs-active-bar"></span> }
+        </button>
+      }
     </nav>
 
     <div class="cs-sidebar-footer">
-      <button class="cs-nav-item cs-logout" (click)="logout()"
-              [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''" tooltipPosition="right">
+      <button type="button" class="cs-nav-item cs-logout"
+              (click)="logout()"
+              [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''"
+              tooltipPosition="right">
         <i class="pi pi-sign-out"></i>
-        <span *ngIf="!sidebarCollapsed()">Déconnexion</span>
+        @if (!sidebarCollapsed()) { <span>Déconnexion</span> }
       </button>
     </div>
   </aside>
@@ -39,529 +44,600 @@
   <!-- ══ MAIN ═════════════════════════════════════════════════════════════ -->
   <main class="cs-main">
 
-    <!-- ── Topbar ──────────────────────────────────────────────────────── -->
+    <!-- ── Topbar ── -->
     <header class="cs-topbar">
       <div class="cs-topbar-left">
-        <button class="cs-icon-btn" (click)="toggleSidebar()" pTooltip="Réduire le menu">
+        <button type="button" class="cs-icon-btn" (click)="toggleSidebar()" pTooltip="Menu">
           <i class="pi pi-bars"></i>
         </button>
         <nav class="cs-breadcrumb">
           <span>CardioSense</span>
-          <i class="pi pi-chevron-right"></i>
+          <i class="pi pi-angle-right"></i>
           <span class="cs-breadcrumb-active">
-            {{ activeNav() === 'overview'     ? "Vue d'ensemble"   :
-               activeNav() === 'appointments' ? 'Mes Rendez-vous'  :
-               activeNav() === 'medical-file' ? 'Dossier Médical'  :
-               activeNav() === 'booking'      ? 'Prendre un RDV'   : 'Paramètres' }}
+            {{ activeNav() === 'overview'     ? "Vue d'ensemble"  :
+               activeNav() === 'appointments' ? 'Rendez-vous'     :
+               activeNav() === 'medical-file' ? 'Dossier Médical' :
+               activeNav() === 'booking'      ? 'Prendre un RDV'  : 'Paramètres' }}
           </span>
         </nav>
       </div>
-
       <div class="cs-topbar-right">
-        <button class="cs-icon-btn" (click)="toggleDark()"
+        <button type="button" class="cs-icon-btn"
+                (click)="toggleDark()"
                 [pTooltip]="isDark ? 'Mode clair' : 'Mode sombre'">
           <i class="pi" [ngClass]="isDark ? 'pi-sun' : 'pi-moon'"></i>
         </button>
-        <div class="cs-avatar-chip">
-          <p-avatar [label]="patientInitials()" shape="circle" styleClass="cs-avatar" />
+        <div class="cs-avatar-chip" (click)="navigateTo('settings')" style="cursor:pointer">
+          <span class="cs-avatar-circle">{{ patientInitials() }}</span>
           <span class="cs-avatar-name">{{ patientName() }}</span>
         </div>
       </div>
     </header>
 
+    <!-- ══ CONTENT ════════════════════════════════════════════════════════ -->
     <div class="cs-content">
 
-      <!-- ══ OVERVIEW ═══════════════════════════════════════════════════ -->
-      <section *ngIf="activeNav() === 'overview'" class="cs-section cs-anim-fade">
+      <!-- ── OVERVIEW ──────────────────────────────────────────────────── -->
+      @if (activeNav() === 'overview') {
+        <section class="cs-section cs-anim-fade">
 
-        <div class="cs-section-header">
-          <div>
-            <h1 class="cs-section-title">Bonjour, {{ patientName().split(' ')[0] }} 👋</h1>
-            <p class="cs-section-sub">Voici un résumé de votre santé aujourd'hui.</p>
+          <div class="cs-section-header">
+            <div>
+              <h1 class="cs-section-title">Bonjour, {{ patientName().split(' ')[0] }}</h1>
+              <p class="cs-section-sub">Voici un résumé de votre santé.</p>
+            </div>
+            <p-button
+              label="Prendre un RDV"
+              icon="pi pi-plus"
+              (onClick)="navigateTo('booking')"
+              styleClass="cs-btn-primary" />
           </div>
-          <button pButton label="Prendre RDV" icon="pi pi-plus"
-                  class="p-button-sm cs-btn-primary"
-                  (click)="navigateTo('booking')"></button>
-        </div>
 
-        <!-- Stat cards -->
-        <div class="cs-stats-grid">
-          <div class="cs-stat-card cs-stat-emerald">
-            <div class="cs-stat-icon"><i class="pi pi-calendar-clock"></i></div>
-            <div class="cs-stat-body">
-              <span class="cs-stat-value">
-                {{ pendingAppointments().length + confirmedAppointments().length }}
-              </span>
-              <span class="cs-stat-label">Rendez-vous à venir</span>
+          @if (!currentUser()?.doctorId) {
+            <p>{{currentUser()?.doctorId}}</p>
+            <div class="cs-notice-card">
+              <div class="cs-notice-icon">
+                <i class="pi pi-user-plus"></i>
+              </div>
+              <div class="cs-notice-body">
+                <strong>Aucun médecin assigné</strong>
+                <span>Parcourez nos cardiologues et prenez votre premier rendez-vous.</span>
+              </div>
+              <p-button
+                label="Choisir un médecin"
+                size="small"
+                (onClick)="navigateTo('booking')"
+                styleClass="cs-btn-primary" />
             </div>
-          </div>
-          <div class="cs-stat-card cs-stat-blue">
-            <div class="cs-stat-icon"><i class="pi pi-check-circle"></i></div>
-            <div class="cs-stat-body">
-              <span class="cs-stat-value">{{ completedAppointments().length }}</span>
-              <span class="cs-stat-label">Consultations effectuées</span>
-            </div>
-          </div>
-          <div class="cs-stat-card cs-stat-amber">
-            <div class="cs-stat-icon"><i class="pi pi-clock"></i></div>
-            <div class="cs-stat-body">
-              <span class="cs-stat-value">{{ pendingAppointments().length }}</span>
-              <span class="cs-stat-label">En attente de confirmation</span>
-            </div>
-          </div>
-          <div class="cs-stat-card cs-stat-rose">
-            <div class="cs-stat-icon"><i class="pi pi-folder-open"></i></div>
-            <div class="cs-stat-body">
-              <span class="cs-stat-value">
-                {{ medicalFile()?.consultations?.length ?? 0 }}
-              </span>
-              <span class="cs-stat-label">Entrées dans le dossier</span>
-            </div>
-          </div>
-        </div>
+          }
 
-        <!-- Overview 2-column grid -->
-        <div class="cs-overview-grid">
-
-          <!-- Upcoming appointments -->
-          <div class="cs-card">
-            <div class="cs-card-header">
-              <h3><i class="pi pi-calendar"></i> Prochains rendez-vous</h3>
+          <div class="cs-stats-grid">
+            <div class="cs-stat-card cs-stat-emerald">
+              <div class="cs-stat-icon"><i class="pi pi-calendar-clock"></i></div>
+              <div class="cs-stat-body">
+                <span class="cs-stat-value">{{ pendingAppointments().length + confirmedAppointments().length }}</span>
+                <span class="cs-stat-label">À venir</span>
+              </div>
             </div>
-            <div class="cs-card-body">
-              <ng-container *ngIf="loadingAppointments(); else apptList">
-                <div *ngFor="let s of skeletonArray(3)" class="cs-skeleton-row">
-                  <p-skeleton height="2.5rem" styleClass="mb-2" />
-                </div>
-              </ng-container>
-              <ng-template #apptList>
-                <div *ngIf="upcomingAppointments().length === 0" class="cs-empty">
-                  <i class="pi pi-calendar-times"></i>
-                  <span>Aucun rendez-vous à venir</span>
-                </div>
-                <div *ngFor="let appt of upcomingAppointments()" class="cs-upcoming-item">
-                  <div class="cs-upcoming-icon" [ngClass]="'status-' + appt.status?.toLowerCase()">
-                    <i [class]="statusIcon(appt.status)"></i>
+            <div class="cs-stat-card cs-stat-blue">
+              <div class="cs-stat-icon"><i class="pi pi-check-circle"></i></div>
+              <div class="cs-stat-body">
+                <span class="cs-stat-value">{{ completedAppointments().length }}</span>
+                <span class="cs-stat-label">Consultations terminées</span>
+              </div>
+            </div>
+            <div class="cs-stat-card cs-stat-amber">
+              <div class="cs-stat-icon"><i class="pi pi-clock"></i></div>
+              <div class="cs-stat-body">
+                <span class="cs-stat-value">{{ pendingAppointments().length }}</span>
+                <span class="cs-stat-label">En attente</span>
+              </div>
+            </div>
+            <div class="cs-stat-card cs-stat-rose">
+              <div class="cs-stat-icon"><i class="pi pi-folder-open"></i></div>
+              <div class="cs-stat-body">
+                <span class="cs-stat-value">{{ consultations().length }}</span>
+                <span class="cs-stat-label">Entrées dossier</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cs-overview-grid">
+
+            <div class="cs-card">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-calendar"></i> Prochains rendez-vous</h3>
+              </div>
+              <div class="cs-card-body">
+                @if (loadingAppointments()) {
+                  @for (s of skeletonArray(3); track s) {
+                    <p-skeleton height="2.5rem" styleClass="cs-skeleton-row" />
+                  }
+                } @else if (upcomingAppointments().length === 0) {
+                  <div class="cs-empty">
+                    <i class="pi pi-calendar-times"></i>
+                    <span>Aucun rendez-vous à venir</span>
                   </div>
-                  <div class="cs-upcoming-info">
-                    <span class="cs-upcoming-date">{{ formatDateTime(appt.dateTime) }}</span>
-                  </div>
-                  <p-tag [severity]="statusSeverity(appt.status)" [value]="statusLabel(appt.status)" />
-                </div>
-              </ng-template>
-            </div>
-          </div>
-
-          <!-- Recent consultations -->
-          <div class="cs-card">
-            <div class="cs-card-header">
-              <h3><i class="pi pi-file-edit"></i> Dernières consultations</h3>
-              <button class="cs-link-btn" (click)="navigateTo('medical-file')">Voir tout</button>
-            </div>
-            <div class="cs-card-body">
-              <ng-container *ngIf="loadingMedicalFile(); else consultList">
-                <div *ngFor="let s of skeletonArray(3)" class="cs-skeleton-row">
-                  <p-skeleton height="2.5rem" styleClass="mb-2" />
-                </div>
-              </ng-container>
-              <ng-template #consultList>
-                <div *ngIf="recentConsultations().length === 0" class="cs-empty">
-                  <i class="pi pi-inbox"></i>
-                  <span>Aucune consultation enregistrée</span>
-                </div>
-                <div *ngFor="let c of recentConsultations()" class="cs-consult-item">
-                  <div class="cs-consult-date">{{ formatDate(c.dateDeConsultation) }}</div>
-                  <div class="cs-consult-diag">{{ c.notes || 'Notes non disponibles' }}</div>
-                  <div *ngIf="c.predictionResult as pr" class="cs-consult-risk">
-                    <p-tag
-                      [severity]="riskSeverity(pr.prediction)"
-                      [value]="riskText(pr.prediction)"
-                    />
-                  </div>
-                </div>
-              </ng-template>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- ══ APPOINTMENTS ════════════════════════════════════════════════ -->
-      <section *ngIf="activeNav() === 'appointments'" class="cs-section cs-anim-fade">
-
-        <div class="cs-section-header">
-          <div>
-            <h1 class="cs-section-title">Mes Rendez-vous</h1>
-            <p class="cs-section-sub">Suivez l'état de toutes vos demandes de consultation.</p>
-          </div>
-          <button pButton label="Nouveau rendez-vous" icon="pi pi-plus"
-                  class="p-button-sm cs-btn-primary"
-                  (click)="navigateTo('booking')"></button>
-        </div>
-
-        <p-tabs value="all">
-          <p-tablist>
-            <p-tab value="all">Tous ({{ appointments().length }})</p-tab>
-            <p-tab value="pending">En attente ({{ pendingAppointments().length }})</p-tab>
-            <p-tab value="confirmed">Confirmés ({{ confirmedAppointments().length }})</p-tab>
-            <p-tab value="completed">Terminés ({{ completedAppointments().length }})</p-tab>
-            <p-tab value="cancelled">Annulés ({{ cancelledAppointments().length }})</p-tab>
-          </p-tablist>
-
-          <p-tabpanels>
-            <p-tabpanel value="all">
-              <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: appointments() }" />
-            </p-tabpanel>
-            <p-tabpanel value="pending">
-              <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: pendingAppointments() }" />
-            </p-tabpanel>
-            <p-tabpanel value="confirmed">
-              <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: confirmedAppointments() }" />
-            </p-tabpanel>
-            <p-tabpanel value="completed">
-              <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: completedAppointments() }" />
-            </p-tabpanel>
-            <p-tabpanel value="cancelled">
-              <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: cancelledAppointments() }" />
-            </p-tabpanel>
-          </p-tabpanels>
-        </p-tabs>
-
-        <ng-template #apptTable let-list>
-          <ng-container *ngIf="loadingAppointments(); else tableContent">
-            <div *ngFor="let s of skeletonArray(5)" class="cs-skeleton-row">
-              <p-skeleton height="3rem" styleClass="mb-2" />
-            </div>
-          </ng-container>
-          <ng-template #tableContent>
-            <div *ngIf="list.length === 0" class="cs-empty cs-empty-lg">
-              <i class="pi pi-calendar-times"></i>
-              <span>Aucun rendez-vous dans cette catégorie</span>
-            </div>
-            <p-table *ngIf="list.length > 0" [value]="list"
-                     [paginator]="list.length > 10" [rows]="10"
-                     styleClass="cs-table p-datatable-sm" responsiveLayout="scroll">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>Date &amp; Heure</th>
-                  <th>Durée</th>
-                  <th>Statut</th>
-                  <th>Actions</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-appt>
-                <tr class="cs-table-row" [ngClass]="'status-' + appt.status?.toLowerCase()">
-                  <td>
-                    <div class="cs-dt-cell">
-                      <i class="pi pi-calendar cs-dt-icon"></i>
-                      {{ formatDateTime(appt.dateTime) }}
+                } @else {
+                  @for (appt of upcomingAppointments(); track appt.id) {
+                    <div class="cs-upcoming-item">
+                      <div class="cs-upcoming-icon" [ngClass]="'status-' + appt.status?.toLowerCase()">
+                        <i [class]="statusIcon(appt.status)"></i>
+                      </div>
+                      <div class="cs-upcoming-info">
+                        <span class="cs-upcoming-date">{{ formatDateTime(appt.dateTime) }}</span>
+                      </div>
+                      <p-tag [severity]="statusSeverity(appt.status)" [value]="statusLabel(appt.status)" />
                     </div>
-                  </td>
-                  <td>{{ appt.durationMinutes || 30 }} min</td>
-                  <td>
-                    <p-tag [severity]="statusSeverity(appt.status)"
-                           [value]="statusLabel(appt.status)" />
-                  </td>
-                  <td>
-                    <button
-                      *ngIf="appt.status === 'PENDING' || appt.status === 'CONFIRMED'"
-                      type="button"
-                      class="cs-link-btn"
-                      (click)="openRescheduleDialog(appt)"
-                    >
-                      Reprogrammer
+                  }
+                }
+              </div>
+            </div>
+
+            <div class="cs-card">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-file-edit"></i> Dernières consultations</h3>
+                <p-button
+                  label="Tout voir"
+                  [text]="true"
+                  size="small"
+                  (onClick)="navigateTo('medical-file')"
+                  styleClass="cs-link-btn-prime" />
+              </div>
+              <div class="cs-card-body">
+                @if (loadingConsultations()) {
+                  @for (s of skeletonArray(3); track s) {
+                    <p-skeleton height="2.5rem" styleClass="cs-skeleton-row" />
+                  }
+                } @else if (recentConsultations().length === 0) {
+                  <div class="cs-empty">
+                    <i class="pi pi-inbox"></i>
+                    <span>Aucune consultation enregistrée</span>
+                  </div>
+                } @else {
+                  @for (c of recentConsultations(); track c.id) {
+                    <div class="cs-consult-item">
+                      <div class="cs-consult-date">{{ formatDate(c.dateDeConsultation) }}</div>
+                      <div class="cs-consult-diag">
+                        {{ c.vitals?.length ? c.vitals.length + ' mesure(s)' : 'Consultation' }}
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+
+          </div>
+        </section>
+      }
+
+      <!-- ── BOOKING ────────────────────────────────────────────────────── -->
+      @if (activeNav() === 'booking') {
+        <section class="cs-section cs-anim-fade">
+          <div class="cs-section-header">
+            <div>
+              <h1 class="cs-section-title">Prendre un rendez-vous</h1>
+              @if (selectedDoctorId()) {
+                <p class="cs-section-sub">
+                  Créneaux disponibles — Dr. {{ selectedDoctorFirst() }} {{ selectedDoctorLast() }}
+                </p>
+              } @else {
+                <p class="cs-section-sub">Choisissez un cardiologue pour votre suivi.</p>
+              }
+            </div>
+          </div>
+
+          @if (!selectedDoctorId()) {
+            <div class="cs-doctor-picker">
+              @if (loadingDoctors()) {
+                @for (s of skeletonArray(3); track s) {
+                  <p-skeleton height="80px" borderRadius="12px" styleClass="cs-skeleton-row" />
+                }
+              } @else if (allDoctors().length === 0) {
+                <div class="cs-empty cs-empty-lg">
+                  <i class="pi pi-user-minus"></i>
+                  <span>Aucun médecin disponible pour le moment.</span>
+                </div>
+              } @else {
+                <p class="cs-picker-hint">
+                  <i class="pi pi-info-circle"></i>
+                  Sélectionnez un médecin pour consulter ses disponibilités.
+                </p>
+                <div class="cs-doctor-grid">
+                  @for (doc of allDoctors(); track doc.id) {
+                    <button type="button" class="cs-doctor-card"
+                            [class.selected]="tempSelectedDoctorId() === doc.id"
+                            (click)="selectTempDoctor(doc)">
+                      <div class="cs-doctor-avatar">{{ buildInitials(doc.firstName, doc.lastName) }}</div>
+                      <div class="cs-doctor-info">
+                        <strong>Dr. {{ doc.firstName }} {{ doc.lastName }}</strong>
+                        <span>Cardiologie</span>
+                      </div>
+                      <i class="pi" [ngClass]="tempSelectedDoctorId() === doc.id ? 'pi-check-circle' : 'pi-chevron-right'" style="margin-left:auto; color: var(--emerald)"></i>
                     </button>
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (tempSelectedDoctorId()) {
+              <div class="cs-booking-timetable">
+                <app-patient-booking
+                  [doctorId]="tempSelectedDoctorId()"
+                  [patientId]="currentUser()!.id"
+                  [patientEmail]="patientEmail()"
+                  [patientFirstName]="currentUser()!.firstName"
+                  [patientLastName]="currentUser()!.lastName ?? ''"
+                  [doctorFirstName]="tempSelectedDoctorFirst()"
+                  [doctorLastName]="tempSelectedDoctorLast()"
+                  (appointmentBooked)="onAppointmentBooked()"
+                  (rescheduleRequested)="openRescheduleFromTimetable($event)" />
+              </div>
+            }
+
+          } @else {
+            <app-patient-booking
+              [doctorId]="selectedDoctorId()"
+              [patientId]="currentUser()!.id"
+              [patientEmail]="patientEmail()"
+              [patientFirstName]="currentUser()!.firstName"
+              [patientLastName]="currentUser()!.lastName ?? ''"
+              [doctorFirstName]="selectedDoctorFirst()"
+              [doctorLastName]="selectedDoctorLast()"
+              (appointmentBooked)="loadAppointments()"
+              (rescheduleRequested)="openRescheduleFromTimetable($event)" />
+          }
+        </section>
+      }
+
+      <!-- ── APPOINTMENTS ────────────────────────────────────────────────── -->
+      @if (activeNav() === 'appointments') {
+        <section class="cs-section cs-anim-fade">
+          <div class="cs-section-header">
+            <div>
+              <h1 class="cs-section-title">Mes Rendez-vous</h1>
+              <p class="cs-section-sub">Suivez l'état de toutes vos demandes.</p>
+            </div>
+            <p-button
+              label="Nouveau rendez-vous"
+              icon="pi pi-plus"
+              (onClick)="navigateTo('booking')"
+              styleClass="cs-btn-primary" />
+          </div>
+
+          <p-tabs value="all">
+            <p-tablist>
+              <p-tab value="all">Tous ({{ appointments().length }})</p-tab>
+              <p-tab value="pending">En attente ({{ pendingAppointments().length }})</p-tab>
+              <p-tab value="confirmed">Confirmés ({{ confirmedAppointments().length }})</p-tab>
+              <p-tab value="completed">Terminés ({{ completedAppointments().length }})</p-tab>
+              <p-tab value="cancelled">Annulés ({{ cancelledAppointments().length }})</p-tab>
+            </p-tablist>
+            <p-tabpanels>
+              <p-tabpanel value="all">
+                <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: appointments() }" />
+              </p-tabpanel>
+              <p-tabpanel value="pending">
+                <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: pendingAppointments() }" />
+              </p-tabpanel>
+              <p-tabpanel value="confirmed">
+                <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: confirmedAppointments() }" />
+              </p-tabpanel>
+              <p-tabpanel value="completed">
+                <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: completedAppointments() }" />
+              </p-tabpanel>
+              <p-tabpanel value="cancelled">
+                <ng-container *ngTemplateOutlet="apptTable; context: { $implicit: cancelledAppointments() }" />
+              </p-tabpanel>
+            </p-tabpanels>
+          </p-tabs>
+
+          <ng-template #apptTable let-list>
+            @if (loadingAppointments()) {
+              @for (s of skeletonArray(5); track s) {
+                <p-skeleton height="3rem" styleClass="cs-skeleton-row" />
+              }
+            } @else if (list.length === 0) {
+              <div class="cs-empty cs-empty-lg">
+                <i class="pi pi-calendar-times"></i>
+                <span>Aucun rendez-vous dans cette catégorie</span>
+              </div>
+            } @else {
+              <p-table [value]="list" [paginator]="list.length > 10" [rows]="10"
+                       styleClass="cs-table p-datatable-sm" responsiveLayout="scroll">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Date &amp; Heure</th>
+                    <th>Type</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-appt>
+                  <tr [ngClass]="'status-' + appt.status?.toLowerCase()">
+                    <td>
+                      <div class="cs-dt-cell">
+                        <i class="pi pi-calendar cs-dt-icon"></i>
+                        {{ formatDateTime(appt.dateTime) }}
+                      </div>
+                    </td>
+                    <td>{{ appt.appointmentType || 'Consultation' }}</td>
+                    <td><p-tag [severity]="statusSeverity(appt.status)" [value]="statusLabel(appt.status)" /></td>
+                    <td>
+                      @if (appt.status === 'PENDING' || appt.status === 'CONFIRMED') {
+                        <p-button
+                          label="Reprogrammer"
+                          [text]="true"
+                          size="small"
+                          icon="pi pi-calendar-clock"
+                          (onClick)="openRescheduleDialog(appt)"
+                          styleClass="cs-link-btn-prime" />
+                      }
+                    </td>
+                  </tr>
+                </ng-template>
+              </p-table>
+            }
           </ng-template>
-        </ng-template>
+        </section>
+      }
 
-      </section>
-
-      <!-- ══ BOOKING — Full timetable ═══════════════════════════════════ -->
-      <section *ngIf="activeNav() === 'booking'" class="cs-section cs-anim-fade">
-
-        <!-- No doctor assigned yet -->
-        <ng-container *ngIf="!selectedDoctorId(); else timetable">
+      <!-- ── DOSSIER MÉDICAL ─────────────────────────────────────────────── -->
+      @if (activeNav() === 'medical-file') {
+        <section class="cs-section cs-anim-fade">
           <div class="cs-section-header">
             <div>
-              <h1 class="cs-section-title">Prendre un rendez-vous</h1>
-              <p class="cs-section-sub">Consultez les créneaux disponibles de votre médecin.</p>
-            </div>
-          </div>
-          <div class="cs-empty cs-empty-lg">
-            <i class="pi pi-user-minus"></i>
-            <span>Aucun médecin ne vous a encore été assigné.</span>
-            <small>Contactez votre établissement de santé pour être pris en charge.</small>
-          </div>
-        </ng-container>
-
-        <!-- Doctor assigned — show timetable with doctor info -->
-        <ng-template #timetable>
-          <div class="cs-section-header">
-            <div>
-              <h1 class="cs-section-title">Prendre un rendez-vous</h1>
-              <p class="cs-section-sub">
-                Sélectionnez un créneau vert avec
-                <strong>Dr. {{ selectedDoctorFirst() }} {{ selectedDoctorLast() }}</strong>
-              </p>
+              <h1 class="cs-section-title">Mon Dossier Médical</h1>
+              <p class="cs-section-sub">Historique de vos consultations.</p>
             </div>
           </div>
 
-          <app-patient-booking
-            [doctorId]="selectedDoctorId()"
-            [patientId]="currentUser()!.id"
-            [patientEmail]="patientEmail()"
-            [patientFirstName]="currentUser()!.firstName"
-            [patientLastName]="currentUser()!.lastName ?? ''"
-            [doctorFirstName]="selectedDoctorFirst()"
-            [doctorLastName]="selectedDoctorLast()"
-            (appointmentBooked)="loadAppointments()"
-            (rescheduleRequested)="openRescheduleFromTimetable($event)"
-          />
-        </ng-template>
-
-      </section>
-
-      <!-- ══ MEDICAL FILE ════════════════════════════════════════════════ -->
-      <section *ngIf="activeNav() === 'medical-file'" class="cs-section cs-anim-fade">
-
-        <div class="cs-section-header">
-          <div>
-            <h1 class="cs-section-title">Mon Dossier Médical</h1>
-            <p class="cs-section-sub">Historique de toutes vos consultations et analyses.</p>
-          </div>
-        </div>
-
-        <!-- Loading -->
-        <ng-container *ngIf="loadingMedicalFile()">
-          <div class="cs-card">
-            <div class="cs-card-body">
-              <div *ngFor="let s of skeletonArray(4)" class="cs-skeleton-row">
-                <p-skeleton height="4rem" styleClass="mb-3" />
+          @if (loadingMedicalFile()) {
+            <div class="cs-card">
+              <div class="cs-card-body">
+                @for (s of skeletonArray(4); track s) {
+                  <p-skeleton height="4rem" styleClass="cs-skeleton-row" />
+                }
               </div>
             </div>
-          </div>
-        </ng-container>
-
-        <!-- No file yet -->
-        <div *ngIf="!loadingMedicalFile() && !medicalFile()" class="cs-empty cs-empty-lg">
-          <i class="pi pi-folder-open"></i>
-          <span>Votre dossier médical est vide pour l'instant.</span>
-          <small>Il sera alimenté par votre médecin après chaque consultation.</small>
-        </div>
-
-        <!-- File loaded -->
-        <ng-container *ngIf="!loadingMedicalFile() && medicalFile() as file">
-
-          <!-- General info card -->
-          <div class="cs-card cs-mb-4">
-            <div class="cs-card-header">
-              <h3><i class="pi pi-id-card"></i> Informations générales</h3>
+          } @else if (!medicalFile()) {
+            <div class="cs-empty cs-empty-lg">
+              <i class="pi pi-folder-open"></i>
+              <span>Votre dossier médical est vide pour l'instant.</span>
+              <small>Il sera alimenté par votre médecin après chaque consultation.</small>
             </div>
-            <div class="cs-card-body cs-info-grid">
-              <div class="cs-info-item">
-                <span class="cs-info-label">Dossier n°</span>
-                <span class="cs-info-value cs-mono">{{ file.id }}</span>
+          } @else {
+            <div class="cs-card cs-mb-4">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-id-card"></i> Informations générales</h3>
               </div>
-              <div class="cs-info-item">
-                <span class="cs-info-label">Créé le</span>
-                <!-- Backend field: creationDate (LocalDate from MedicalFile entity) -->
-                <span class="cs-info-value">
-                  {{ formatDate(file.createdAt ?? file.createdAt) }}
-                </span>
-              </div>
-              <div class="cs-info-item">
-                <span class="cs-info-label">Dernière mise à jour</span>
-                <span class="cs-info-value">
-                  {{ formatDate(file.updatedAt ?? file.updatedAt) }}
-                </span>
-              </div>
-              <div class="cs-info-item">
-                <span class="cs-info-label">Nombre de consultations</span>
-                <span class="cs-info-value">{{ file.consultations?.length ?? 0 }}</span>
-              </div>
-              <!-- Risk summary (set by doctor after AI prediction) -->
-              <div class="cs-info-item" *ngIf="file.riskLevel">
-                <span class="cs-info-label">Niveau de risque</span>
-                <span class="cs-info-value">
-                  <p-tag
-                    [value]="file.riskLevel"
-                    [severity]="file.riskLevel === 'high' ? 'danger' :
-                                file.riskLevel === 'medium' ? 'warn' : 'success'"
-                  />
-                </span>
-              </div>
-              <div class="cs-info-item" *ngIf="file.riskPercentage != null">
-                <span class="cs-info-label">Score de risque</span>
-                <span class="cs-info-value">{{ (file.riskPercentage * 100).toFixed(1) }} %</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Consultation timeline -->
-          <div class="cs-card">
-            <div class="cs-card-header">
-              <h3><i class="pi pi-history"></i> Historique des consultations</h3>
-            </div>
-            <div class="cs-card-body">
-
-              <div *ngIf="!file.consultations?.length" class="cs-empty">
-                <i class="pi pi-inbox"></i>
-                <span>Aucune consultation enregistrée</span>
-              </div>
-
-              <div *ngFor="let c of file.consultations; let i = index"
-                   class="cs-timeline-entry" [class.cs-timeline-first]="i === 0">
-
-                <div class="cs-timeline-track">
-                  <div class="cs-timeline-dot"
-                       [class.cs-dot-risk]="c.predictionResult?.prediction === 'High Risk'"></div>
-                  <div class="cs-timeline-line"
-                       *ngIf="i < file.consultations.length - 1"></div>
+              <div class="cs-card-body cs-info-grid">
+                <div class="cs-info-item">
+                  <span class="cs-info-label">Créé le</span>
+                  <span class="cs-info-value">{{ formatDate(medicalFile()!.creationDate) }}</span>
                 </div>
-
-                <div class="cs-timeline-card">
-                  <div class="cs-timeline-card-header">
-                    <span class="cs-timeline-date">{{ formatDate(c.dateDeConsultation) }}</span>
-                    <p-tag
-                      *ngIf="c.predictionResult"
-                      [severity]="riskSeverity(c.predictionResult.prediction)"
-                      [value]="riskText(c.predictionResult.prediction)"
-                    />
+                <div class="cs-info-item">
+                  <span class="cs-info-label">Mise à jour</span>
+                  <span class="cs-info-value">{{ formatDate(medicalFile()!.creationDate) }}</span>
+                </div>
+                <div class="cs-info-item">
+                  <span class="cs-info-label">Consultations</span>
+                  <span class="cs-info-value">{{ consultations().length }}</span>
+                </div>
+                @if (medicalFile()!.riskLevel) {
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Niveau de risque</span>
+                    <span class="cs-info-value">
+                      <p-tag [value]="medicalFile()!.riskLevel!"
+                             [severity]="medicalFile()!.riskLevel === 'high' ? 'danger' :
+                                         medicalFile()!.riskLevel === 'medium' ? 'warn' : 'success'" />
+                    </span>
                   </div>
+                }
+              </div>
+            </div>
 
-                  <div class="cs-timeline-card-body">
-                    <!-- Notes (always visible to patient) -->
-                    <div class="cs-consult-field" *ngIf="c.notes">
-                      <span class="cs-field-label">Notes</span>
-                      <span class="cs-field-value cs-field-notes">{{ c.notes }}</span>
+            <div class="cs-card">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-history"></i> Historique des consultations</h3>
+                <span class="cs-badge">{{ consultations().length }}</span>
+              </div>
+              <div class="cs-card-body">
+                @if (loadingConsultations()) {
+                  @for (s of skeletonArray(3); track s) {
+                    <p-skeleton height="4rem" styleClass="cs-skeleton-row" />
+                  }
+                } @else if (consultations().length === 0) {
+                  <div class="cs-empty">
+                    <i class="pi pi-inbox"></i>
+                    <span>Aucune consultation enregistrée</span>
+                  </div>
+                } @else {
+                  @for (c of consultations(); track c.id; let i = $index) {
+                    <div class="cs-timeline-entry">
+                      <div class="cs-timeline-track">
+                        <div class="cs-timeline-dot" [class.cs-dot-risk]="hasHighRisk(c)"></div>
+                        @if (i < consultations().length - 1) {
+                          <div class="cs-timeline-line"></div>
+                        }
+                      </div>
+                      <div class="cs-timeline-card">
+                        <div class="cs-timeline-card-header">
+                          <span class="cs-timeline-date">{{ formatDate(c.dateDeConsultation) }}</span>
+                          <span class="cs-badge cs-badge-secondary">{{ c.vitals?.length || 0 }} mesure(s)</span>
+                        </div>
+                        @if (c.vitals?.length) {
+                          <div class="cs-vitals-grid">
+                            @if (c.vitals[0].restingBloodPressure != null) {
+                              <div class="cs-vital">
+                                <span>TA repos</span>
+                                <strong>{{ c.vitals[0].restingBloodPressure }} mmHg</strong>
+                              </div>
+                            }
+                            @if (c.vitals[0].cholesterol != null) {
+                              <div class="cs-vital">
+                                <span>Cholestérol</span>
+                                <strong>{{ c.vitals[0].cholesterol }} mg/dL</strong>
+                              </div>
+                            }
+                            @if (c.vitals[0].maxHeartRateAchieved != null) {
+                              <div class="cs-vital">
+                                <span>FC max</span>
+                                <strong>{{ c.vitals[0].maxHeartRateAchieved }} bpm</strong>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
                     </div>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </section>
+      }
 
-                    <!-- Vitals payload (only shown if present and visible) -->
-                    <div *ngIf="c.predictionResult?.payload as p" class="cs-vitals-grid">
-                      <div class="cs-vital">
-                        <span>Âge</span><strong>{{ p.age }}</strong>
-                      </div>
-                      <div class="cs-vital">
-                        <span>TA repos</span>
-                        <strong>{{ p.restingBloodPressure }} mmHg</strong>
-                      </div>
-                      <div class="cs-vital">
-                        <span>Cholestérol</span>
-                        <strong>{{ p.cholesterol }} mg/dL</strong>
-                      </div>
-                      <div class="cs-vital">
-                        <span>FC max</span>
-                        <strong>{{ p.maxHeartRateAchieved }} bpm</strong>
-                      </div>
-                    </div>
+      <!-- ── PARAMÈTRES ──────────────────────────────────────────────────── -->
+      @if (activeNav() === 'settings') {
+        <section class="cs-section cs-anim-fade">
+          <div class="cs-section-header">
+            <div>
+              <h1 class="cs-section-title">Paramètres</h1>
+              <p class="cs-section-sub">Gérez votre profil et votre sécurité.</p>
+            </div>
+          </div>
+
+          <div class="cs-settings-layout">
+
+            <!-- Profile card -->
+            <div class="cs-card">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-user"></i> Mon profil</h3>
+              </div>
+              <div class="cs-card-body">
+                <div class="cs-profile-avatar-row">
+                  <div class="cs-profile-avatar-lg">{{ patientInitials() }}</div>
+                  <div>
+                    <div class="cs-profile-name">{{ currentUser()?.firstName }} {{ currentUser()?.lastName }}</div>
+                    <div class="cs-profile-email">{{ patientEmail() }}</div>
                   </div>
                 </div>
 
-              </div>
-            </div>
-          </div>
+                <div class="cs-divider"></div>
 
-        </ng-container>
-      </section>
-
-      <!-- ══ SETTINGS ════════════════════════════════════════════════════ -->
-      <section *ngIf="activeNav() === 'settings'" class="cs-section cs-anim-fade">
-
-        <div class="cs-section-header">
-          <div>
-            <h1 class="cs-section-title">Paramètres</h1>
-            <p class="cs-section-sub">Gérez vos préférences et la sécurité de votre compte.</p>
-          </div>
-        </div>
-
-        <div class="cs-settings-layout">
-
-          <!-- Profile info (read-only) -->
-          <div class="cs-card">
-            <div class="cs-card-header"><h3><i class="pi pi-user"></i> Mon profil</h3></div>
-            <div class="cs-card-body cs-info-grid">
-              <div class="cs-info-item">
-                <span class="cs-info-label">Prénom</span>
-                <span class="cs-info-value">{{ currentUser()?.firstName || '—' }}</span>
-              </div>
-              <div class="cs-info-item">
-                <span class="cs-info-label">Nom</span>
-                <span class="cs-info-value">{{ currentUser()?.lastName || '—' }}</span>
-              </div>
-              <div class="cs-info-item">
-                <span class="cs-info-label">Email</span>
-                <span class="cs-info-value">{{ patientEmail() || '—' }}</span>
-              </div>
-              <div class="cs-info-item" *ngIf="selectedDoctorId()">
-                <span class="cs-info-label">Médecin traitant</span>
-                <span class="cs-info-value">
-                  <ng-container *ngIf="loadingDoctor()">
-                    <p-skeleton width="10rem" height="1rem" />
-                  </ng-container>
-                  <ng-container *ngIf="!loadingDoctor()">
-                    Dr. {{ selectedDoctorFirst() }} {{ selectedDoctorLast() }}
-                  </ng-container>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Change password -->
-          <div class="cs-card">
-            <div class="cs-card-header">
-              <h3><i class="pi pi-lock"></i> Modifier le mot de passe</h3>
-            </div>
-            <div class="cs-card-body">
-              <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()"
-                    class="cs-form-grid">
-
-                <div class="cs-field">
-                  <label>Mot de passe actuel</label>
-                  <p-password formControlName="currentPassword" [feedback]="false"
-                              [toggleMask]="true" styleClass="w-full"
-                              [class.ng-invalid]="isFieldInvalid(changePasswordForm, 'currentPassword')" />
-                  <small *ngIf="isFieldInvalid(changePasswordForm, 'currentPassword')"
-                         class="cs-error">Champ obligatoire</small>
+                <div class="cs-info-grid">
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Prénom</span>
+                    <span class="cs-info-value">{{ currentUser()?.firstName || '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Nom</span>
+                    <span class="cs-info-value">{{ currentUser()?.lastName || '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Email</span>
+                    <span class="cs-info-value">{{ patientEmail() || '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Date de naissance</span>
+                    <span class="cs-info-value">{{ formatDate(currentUser()?.dateOfBirth) || '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Âge</span>
+                    <span class="cs-info-value">{{ currentUser()?.age ? currentUser()!.age + ' ans' : '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Sexe</span>
+                    <span class="cs-info-value">{{ currentUser()?.gender || '—' }}</span>
+                  </div>
+                  <div class="cs-info-item">
+                    <span class="cs-info-label">Médecin traitant</span>
+                    <span class="cs-info-value">
+                      @if (loadingDoctor()) {
+                        <p-skeleton width="8rem" height="1rem" />
+                      } @else if (selectedDoctorId()) {
+                        Dr. {{ selectedDoctorFirst() }} {{ selectedDoctorLast() }}
+                      } @else {
+                        <span class="cs-text-muted">Non assigné</span>
+                      }
+                    </span>
+                  </div>
                 </div>
-
-                <div class="cs-field">
-                  <label>Nouveau mot de passe</label>
-                  <p-password formControlName="newPassword" [toggleMask]="true"
-                              styleClass="w-full"
-                              [class.ng-invalid]="isFieldInvalid(changePasswordForm, 'newPassword')" />
-                  <small *ngIf="isFieldInvalid(changePasswordForm, 'newPassword')"
-                         class="cs-error">8 caractères minimum</small>
-                </div>
-
-                <div class="cs-field">
-                  <label>Confirmer le mot de passe</label>
-                  <p-password formControlName="confirmPassword" [feedback]="false"
-                              [toggleMask]="true" styleClass="w-full"
-                              [class.ng-invalid]="isFieldInvalid(changePasswordForm, 'confirmPassword')" />
-                  <small *ngIf="changePasswordForm.errors?.['mismatch'] &&
-                                changePasswordForm.get('confirmPassword')?.touched"
-                         class="cs-error">Les mots de passe ne correspondent pas</small>
-                </div>
-
-                <button pButton type="submit" label="Mettre à jour" icon="pi pi-check"
-                        class="cs-btn-primary" [loading]="submittingPassword()">
-                </button>
-              </form>
+              </div>
             </div>
+
+            <!-- Change password card -->
+            <div class="cs-card">
+              <div class="cs-card-header">
+                <h3><i class="pi pi-lock"></i> Modifier le mot de passe</h3>
+              </div>
+              <div class="cs-card-body">
+                <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()" class="cs-form-grid">
+
+                  <div class="cs-field">
+                    <label for="currentPwd">Mot de passe actuel</label>
+                    <p-password
+                      inputId="currentPwd"
+                      formControlName="currentPassword"
+                      [feedback]="false"
+                      [toggleMask]="true"
+                      styleClass="w-full"
+                      [inputStyle]="{'width':'100%'}" />
+                    @if (isFieldInvalid(changePasswordForm, 'currentPassword')) {
+                      <small class="cs-error"><i class="pi pi-exclamation-circle"></i> Champ obligatoire</small>
+                    }
+                  </div>
+
+                  <div class="cs-field">
+                    <label for="newPwd">Nouveau mot de passe</label>
+                    <p-password
+                      inputId="newPwd"
+                      formControlName="newPassword"
+                      [toggleMask]="true"
+                      styleClass="w-full"
+                      [inputStyle]="{'width':'100%'}" />
+                    @if (isFieldInvalid(changePasswordForm, 'newPassword')) {
+                      <small class="cs-error"><i class="pi pi-exclamation-circle"></i> 8 caractères minimum</small>
+                    }
+                  </div>
+
+                  <div class="cs-field">
+                    <label for="confirmPwd">Confirmer le mot de passe</label>
+                    <p-password
+                      inputId="confirmPwd"
+                      formControlName="confirmPassword"
+                      [feedback]="false"
+                      [toggleMask]="true"
+                      styleClass="w-full"
+                      [inputStyle]="{'width':'100%'}" />
+                    @if (changePasswordForm.errors?.['mismatch'] && changePasswordForm.get('confirmPassword')?.touched) {
+                      <small class="cs-error"><i class="pi pi-exclamation-circle"></i> Les mots de passe ne correspondent pas</small>
+                    }
+                  </div>
+
+                  <div class="cs-form-actions">
+                    <p-button
+                      type="submit"
+                      label="Mettre à jour"
+                      icon="pi pi-check"
+                      [loading]="submittingPassword()"
+                      styleClass="cs-btn-primary cs-btn-full" />
+                  </div>
+
+                </form>
+              </div>
+            </div>
+
           </div>
+        </section>
+      }
 
-        </div>
-      </section>
-
-    </div><!-- /cs-content -->
+    </div>
   </main>
-</div><!-- /cs-shell -->
+</div>
 
-<!-- ══ RESCHEDULE DIALOG ══════════════════════════════════════════════════ -->
+<!-- ══ RESCHEDULE DIALOG ═════════════════════════════════════════════════ -->
 <p-dialog
   [visible]="rescheduleDialogVisible()"
   (visibleChange)="rescheduleDialogVisible.set($event)"
@@ -570,20 +646,21 @@
   [resizable]="false"
   header="Reprogrammer le rendez-vous"
   styleClass="cs-dialog"
-  [style]="{ width: '34rem', maxWidth: '95vw' }"
->
-  <form [formGroup]="rescheduleForm" class="cs-form-grid">
+  [style]="{ width: '36rem', maxWidth: '95vw' }">
+
+  <form [formGroup]="rescheduleForm" class="cs-form-grid cs-form-dialog">
     <div class="cs-field">
       <label>Nouvelle date</label>
       <p-datepicker
         formControlName="date"
         [showIcon]="true"
         dateFormat="dd/mm/yy"
+        [minDate]="today"
         (onSelect)="checkRescheduleSlots()"
-      />
+        styleClass="w-full" />
     </div>
     <div class="cs-field">
-      <label>Nouveau créneau</label>
+      <label>Créneau disponible</label>
       <p-select
         formControlName="selectedSlot"
         [options]="slotOptions()"
@@ -592,20 +669,25 @@
         placeholder="Sélectionner un créneau"
         styleClass="w-full"
         appendTo="body"
-      />
+        [disabled]="availableSlots().length === 0" />
+      @if (availableSlots().length === 0 && rescheduleForm.get('date')?.value) {
+        <small class="cs-hint"><i class="pi pi-info-circle"></i> Aucun créneau disponible pour cette date</small>
+      }
     </div>
   </form>
+
   <ng-template pTemplate="footer">
-    <button type="button" class="cs-link-btn"
-            (click)="rescheduleDialogVisible.set(false)">Annuler</button>
-    <button
-      pButton type="button"
-      label="Envoyer"
+    <p-button
+      label="Annuler"
+      [text]="true"
+      (onClick)="rescheduleDialogVisible.set(false)"
+      styleClass="cs-btn-ghost" />
+    <p-button
+      label="Envoyer la demande"
       icon="pi pi-check"
-      class="cs-btn-primary"
       [loading]="submittingAppointment()"
       [disabled]="rescheduleForm.invalid || availableSlots().length === 0"
-      (click)="submitReschedule()"
-    ></button>
+      (onClick)="submitReschedule()"
+      styleClass="cs-btn-primary" />
   </ng-template>
 </p-dialog>

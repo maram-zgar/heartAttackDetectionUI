@@ -71,6 +71,7 @@ import { sign } from 'crypto';
 import { DoctorTimetableComponent } from './components/timetable/doctor-timetable.component';
 import { PatientService, PatientProfile } from '../../core/http/patient.service';
 import { DoctorApiService } from './services/doctor-api.service';
+import { ConsultationService, PatientConsultation } from '../../core/http/consultation.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Local types
@@ -158,6 +159,7 @@ onTimetableSlotSelected(payload: string): void {
   private readonly destroy$ = new Subject<void>();
   private readonly doctorApi = inject(DoctorApiService);
   readonly predictionResult = signal<PredictionResult | null>(null);
+  private readonly consultationService = inject(ConsultationService);
   profileModalVisible = signal(false);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -175,9 +177,9 @@ onTimetableSlotSelected(payload: string): void {
     { label: 'Femme', value: 0 },
   ];
 
-  readonly binaryOptions: SelectOption<boolean>[] = [
-    { label: 'Oui', value: true },
-    { label: 'Non', value: false },
+  readonly binaryOptions: SelectOption<number>[] = [
+    { label: 'Oui', value: 1 },
+    { label: 'Non', value: 0 },
   ];
 
   readonly chestPainOptions: SelectOption<number>[] = [
@@ -220,6 +222,8 @@ onTimetableSlotSelected(payload: string): void {
   readonly submittingChangePassword = signal(false);
   readonly submittingUpdateDoctor  = signal(false);
   readonly patientSearchQuery = signal('');
+  readonly consultations        = signal<PatientConsultation[]>([]);
+  readonly loadingConsultations = signal(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   //  Signals – data
@@ -570,17 +574,47 @@ onTimetableSlotSelected(payload: string): void {
   openMedicalFile(patient: Patient): void {
     this.selectedPatient.set(patient);
     this.activeNav.set('medical-file');
+
+    // Reset both signals so stale data from the previous patient doesn't flash
     this.medicalFile.set(null);
+    this.consultations.set([]);
+
     this.loadingMedicalFile.set(true);
+    this.loadingConsultations.set(true);
+
+    // Load the medical file metadata (risk level, dates, etc.)
     this.medicalFileService
       .getByPatientId(String(patient.id))
-      .pipe(takeUntil(this.destroy$),
-        finalize(() => this.loadingMedicalFile.set(false)) // Stop loading
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.loadingMedicalFile.set(false)),
       )
       .subscribe({
-        next: file  => this.medicalFile.set(this.withSortedConsultations(file)),
-        error: ()   => this.showError('Impossible de charger le dossier médical.'),
+        next: file => this.medicalFile.set(this.withSortedConsultations(file)),
+        error: ()  => this.medicalFile.set(null),
       });
+
+    // Load the full consultation history from the dedicated endpoint
+    this.consultationService
+      .getByPatientId(String(patient.id))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.loadingConsultations.set(false)),
+      )
+      .subscribe({
+        next: list => this.consultations.set(
+          [...list].sort(
+            (a, b) =>
+              new Date(b.dateDeConsultation).getTime() -
+              new Date(a.dateDeConsultation).getTime(),
+          ),
+        ),
+        error: () => this.consultations.set([]),
+      });
+  }
+
+  hasHighRisk(c: PatientConsultation): boolean {
+    return c.vitals?.some(v => v.risk_percentage != null && v.risk_percentage > 0.5) ?? false;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -732,20 +766,21 @@ onTimetableSlotSelected(payload: string): void {
 
     const v = this.predictionForm.getRawValue();
     const payload: PredictionPayload = {
-      age: v.age,
-      sex: v.sex === 1 ? true : false,
-      chestPainType: v.chestPainType,
-      restingBloodPressure: v.restingBP,
-      cholesterol: v.cholesterol,
-      fastingBloodSugar: v.fastingBS === true,
-      restingECG: v.restingECG,
-      maxHeartRateAchieved: v.maxHR,
-      exerciseInducedAngina: v.exerciseAngina === true,
-      STDepressionInducedByExercise: v.oldpeak,
-      slopeOfPeakExerciseSTSegment: v.slope,
-      nbOfMajorVessels: v.nbOfMajorVessels,
-      thalassemia: v.thalassemia,
+      age:                           v.age,
+      sex:                           v.sex === 1,
+      chestPainType:                 v.chestPainType,
+      restingBloodPressure:          v.restingBloodPressure,
+      cholesterol:                   v.cholesterol,
+      fastingBloodSugar:             v.fastingBloodSugar === 1,
+      restingECG:                    v.restingECG,
+      maxHeartRateAchieved:          v.maxHeartRateAchieved,
+      exerciseInducedAngina:         v.exerciseInducedAngina === 1,
+      STDepressionInducedByExercise: v.STDepressionInducedByExercise,
+      slopeOfPeakExerciseSTSegment:  v.slopeOfPeakExerciseSTSegment,
+      nbOfMajorVessels:              v.nbOfMajorVessels,
+      thalassemia:                   v.thalassemia,
     };
+    console.log('Sending payload to ML model:', payload);
 
     this.predicting.set(true);
     this.predictionService.predict(payload)
@@ -754,7 +789,7 @@ onTimetableSlotSelected(payload: string): void {
         next: result => this.predictionResult.set({
           ...result,
           createdAt: new Date().toISOString(),
-          payload: this.predictionForm.getRawValue() as PredictionPayload,
+          payload: payload,
         }),
       });
   }
@@ -766,14 +801,44 @@ onTimetableSlotSelected(payload: string): void {
       return;
     }
 
+    const patient = this.patients().find(
+      p => String(p.id) === String(appointment.patientId)
+    );
+
+    const pred   = this.predictionResult();
+    const vitals = this.predictionForm.getRawValue() as PredictionPayload;
+
+
+    const completeRequest: Partial<AppointmentRequest> = {
+      patientId:        String(appointment.patientId),
+      doctorId:         appointment.doctorId,
+      dateTime:         appointment.dateTime,
+      patientEmail:     patient?.email     ?? '',
+      patientFirstName: patient?.firstName ?? '',
+      // clinical
+      notes:     this.consultationForm.controls['notes'].value,
+      diagnosis: this.consultationForm.controls['diagnosis'].value,
+      prediction:  pred ? (pred.prediction === 'High Risk' ? 1 : 0) : undefined,
+      riskPercentage: pred ? pred.risk_percentage : undefined,
+      // vitals
+      age:                           vitals.age,
+      sex:                           vitals.sex,
+      chestPainType:                 vitals.chestPainType,
+      restingBloodPressure:          vitals.restingBloodPressure,     // updated
+      cholesterol:                   vitals.cholesterol,
+      fastingBloodSugar:             vitals.fastingBloodSugar,        // updated
+      restingECG:                    vitals.restingECG,
+      maxHeartRateAchieved:          vitals.maxHeartRateAchieved,     // updated
+      exerciseInducedAngina:         vitals.exerciseInducedAngina,    // updated
+      STDepressionInducedByExercise: vitals.STDepressionInducedByExercise, // updated
+      slopeOfPeakExerciseSTSegment:  vitals.slopeOfPeakExerciseSTSegment,  // updated
+      nbOfMajorVessels:              vitals.nbOfMajorVessels,
+      thalassemia:                   vitals.thalassemia,
+     };
+
     this.submitting.set(true);
     this.appointmentService
-      .complete(appointment.id, {
-        ...this.toAppointmentIdentity(appointment),
-        notes:            this.consultationForm.controls['notes'].value,
-        diagnosis:        this.consultationForm.controls['diagnosis'].value,
-        predictionResult: this.predictionResult() ?? undefined,
-      } as any)
+      .complete(appointment.id, completeRequest)
       .pipe(takeUntil(this.destroy$), finalize(() => this.submitting.set(false)))
       .subscribe({
         next: completed => {
@@ -781,23 +846,12 @@ onTimetableSlotSelected(payload: string): void {
           this.consultationDialogVisible.set(false);
           this.messageService.add({
             severity: 'success',
-            summary:  'Consultation enregistrée',
-            detail:   'Ajoutée au dossier médical.',
+            summary:  'Consultation terminée',
+            detail:   'Dossier médical mis à jour.',
           });
-
-          // Kafka is async — wait 1.5s for the consultation-service to process
-          // the appointment.completed event, then reload the medical file
-          const patient = this.selectedPatient();
-          if (patient) {
-            setTimeout(() => {
-              this.medicalFileService
-                .getByPatientId(String(patient.id))
-                .pipe(takeUntil(this.destroy$))
-                .subscribe({
-                  next: file => this.medicalFile.set(this.withSortedConsultations(file)),
-                  error: () => {} // silent — doctor can navigate to dossier manually
-                });
-            }, 1500);
+          // Refresh the medical file if it's open for this patient
+          if (String(this.selectedPatient()?.id) === String(appointment.patientId)) {
+            this.openMedicalFile(this.selectedPatient()!);
           }
         },
         error: (err: unknown) => this.showError(this.errorMessage(err)),
@@ -1145,9 +1199,11 @@ onTimetableSlotSelected(payload: string): void {
 
   riskText(result?: PredictionResult | string | null): string {
     if (!result) return 'Aucune prédiction';
-    const prediction = typeof result === 'string' ? result : result.prediction;
-    return prediction === 'High Risk' ? 'Risque élevé' : 'Risque faible';
-  }
+    if (typeof result === 'string') {
+      return result === 'High Risk' ? 'Risque élevé' : 'Risque faible';
+    }
+    return result.prediction === 'High Risk' ? 'Risque élevé' : 'Risque faible';
+   }
 
   formatDate(dateStr?: string): string {
     if (!dateStr) return '—';
@@ -1194,19 +1250,22 @@ onTimetableSlotSelected(payload: string): void {
   }
 
   loadPatients(): void {
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;                          // ← wait until profile is loaded
+
     this.loadingPatients.set(true);
     this.errorPatients.set(null);
-    this.doctorService.getPatients().pipe(takeUntil(this.destroy$)).subscribe({
+    this.doctorService.getPatients(doctorId).pipe(  // ← pass doctorId
+      takeUntil(this.destroy$),
+      finalize(() => this.loadingPatients.set(false))
+    ).subscribe({
       next: patients => {
         this.patients.set(patients);
-        this.loadingPatients.set(false);
         this.cdr.detectChanges();
       },
       error: err => {
         this.errorPatients.set(err?.error?.message ?? 'Impossible de charger les patients.');
         this.patients.set([]);
-        this.loadingPatients.set(false);
-        this.cdr.detectChanges();
       },
     });
   }
@@ -1286,7 +1345,7 @@ onTimetableSlotSelected(payload: string): void {
       this.medicalFile.set(this.withSortedConsultations({
         ...current,
         consultations: [consultation, ...current.consultations],
-        updatedAt: new Date().toISOString(),
+        lastUpdateDate: new Date().toISOString(),
       }));
     } else {
       const patient = this.selectedPatient();
@@ -1308,6 +1367,10 @@ onTimetableSlotSelected(payload: string): void {
 
   private toAppointmentIdentity(appointment: Appointment): Partial<AppointmentRequest> {
     const patient = this.patients().find(p => String(p.id) === String(appointment.patientId));
+
+    console.log("Mapping appointment identity for", appointment);
+    console.log("Resolved patient", patient);
+
     return {
       patientId:        String(appointment.patientId),
       doctorId:         appointment.doctorId,
@@ -1318,6 +1381,8 @@ onTimetableSlotSelected(payload: string): void {
   }
 
   private withSortedConsultations(file: MedicalFile): MedicalFile {
+    console.log("Sorting consultations for medical file", file);
+
     return {
       ...file,
       consultations: [...(file.consultations ?? [])].sort(
@@ -1418,19 +1483,19 @@ onTimetableSlotSelected(payload: string): void {
     );
 
     this.predictionForm = this.fb.group({
-      age:              [45,    [Validators.required, Validators.min(1),   Validators.max(120)]],
-      sex:              [1,      Validators.required],
-      chestPainType:    [0,      Validators.required],
-      restingBP:        [120,   [Validators.required, Validators.min(50),  Validators.max(250)]],
-      cholesterol:      [200,   [Validators.required, Validators.min(100), Validators.max(600)]],
-      fastingBS:        [false,  Validators.required],
-      restingECG:       [0,      Validators.required],
-      maxHR:            [150,   [Validators.required, Validators.min(60),  Validators.max(220)]],
-      exerciseAngina:   [false,  Validators.required],
-      oldpeak:          [0,     [Validators.required, Validators.min(0)]],
-      slope:            [1,      Validators.required],
-      nbOfMajorVessels: [0,     [Validators.required, Validators.min(0), Validators.max(4)]],
-      thalassemia:      [1,     [Validators.required, Validators.min(0), Validators.max(3)]],
+      age:                           [45,   [Validators.required, Validators.min(1),  Validators.max(120)]],
+      sex:                           [1,     Validators.required],
+      chestPainType:                 [0,     Validators.required],
+      restingBloodPressure:          [120,  [Validators.required, Validators.min(50),  Validators.max(250)]],
+      cholesterol:                   [200,  [Validators.required, Validators.min(100), Validators.max(600)]],
+      fastingBloodSugar:             [0,    Validators.required],
+      restingECG:                    [0,    Validators.required],
+      maxHeartRateAchieved:          [150,  [Validators.required, Validators.min(60),  Validators.max(220)]],
+      exerciseInducedAngina:         [0,    Validators.required],
+      STDepressionInducedByExercise: [0.0, [Validators.required, Validators.min(0)]],
+      slopeOfPeakExerciseSTSegment:  [1,    Validators.required],
+      nbOfMajorVessels:              [0,   [Validators.required, Validators.min(0), Validators.max(3)]],
+      thalassemia:                   [1,   [Validators.required, Validators.min(0), Validators.max(3)]],
     });
 
     this.updateDoctorForm = this.fb.group({

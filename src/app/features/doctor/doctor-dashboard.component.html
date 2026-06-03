@@ -282,7 +282,7 @@
           </button>
         </div>
 
-        <div class="doc-card doc-monitor-toolbar">
+        <div class="doc-card doc-monitor-toolbar" style="z-index: 999;">
           <p-select
             [options]="rangeOptions"
             [ngModel]="monitorRange()"
@@ -410,13 +410,12 @@
       }
 
       @if (activeNav() === 'medical-file') {
-
         <div class="doc-page-header">
           <div>
             <h1 class="doc-page-title">Dossier médical</h1>
             <p class="doc-page-sub">
               @if (selectedPatient()) {
-                Historique de {{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}
+                Historique complet de {{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}
               } @else {
                 Sélectionnez un patient dans l'onglet Patients.
               }
@@ -433,74 +432,202 @@
         @if (!selectedPatient()) {
           <div class="doc-card doc-empty-state">
             <i class="pi pi-folder-open"></i>
-            <span>Aucun patient sélectionné</span>
+            <span>Aucun patient sélectionné. Ouvrez un dossier depuis l'onglet Patients.</span>
           </div>
+
         } @else {
-          <div class="doc-card doc-medical-file">
+
+          <!-- Patient banner -->
+          <div class="doc-card" style="margin-bottom: 1.25rem;">
             <div class="doc-medical-banner">
               <div class="doc-dialog-avatar large">
                 {{ initials(selectedPatient()!.firstName, selectedPatient()!.lastName) }}
               </div>
               <div>
                 <h2>{{ selectedPatient()!.firstName }} {{ selectedPatient()!.lastName }}</h2>
-                <p>{{ medicalFile()?.consultations?.length || 0 }} consultation(s) dans le dossier</p>
+                <p style="color: var(--doc-text-muted); font-size: 0.875rem;">
+                  {{ selectedPatient()!.email }}
+                </p>
+                <p style="color: var(--doc-text-muted); font-size: 0.875rem; margin-top: 0.25rem;">
+                  {{ consultations().length }} consultation(s) enregistrée(s)
+                </p>
               </div>
             </div>
+          </div>
 
-            <p-tabs value="0">
-              <p-tablist>
-                <p-tab value="0">Consultations</p-tab>
-                <p-tab value="1">Prédictions IA</p-tab>
-                <p-tab value="2">Notes</p-tab>
-              </p-tablist>
-              <p-tabpanels>
-                <p-tabpanel value="0">
-                  @for (c of medicalFile()?.consultations || []; track c.id) {
-                    <article class="doc-history-item">
-                      <div class="doc-history-header">
-                        <strong>{{ formatDate(c.dateDeConsultation) }}</strong>
-                        <span>Dr {{ c.doctorFirstName }} {{ c.doctorLastName }}</span>
-                      </div>
-                      @if (c.diagnosis) { <p><strong>Diagnostic :</strong> {{ c.diagnosis }}</p> }
-                      @if (c.notes) { <p>{{ c.notes }}</p> }
-                    </article>
-                  } @empty {
-                    <div class="doc-empty-state"><i class="pi pi-file"></i><span>Aucune consultation</span></div>
-                  }
-                </p-tabpanel>
-                <p-tabpanel value="1">
-                  @for (c of medicalFile()?.consultations || []; track c.id) {
-                    @if (c.predictionResult) {
-                      <article class="doc-history-item">
-                        <div class="doc-history-header">
-                          <strong [class.risk-high]="c.predictionResult.prediction === 'High Risk'"
-                            [class.risk-low]="c.predictionResult.prediction === 'Low Risk'">
-                            {{ riskText(c.predictionResult) }}
-                          </strong>
-                          <span>{{ c.predictionResult.percentage }}</span>
+          <!-- Medical file metadata (risk level, dates) -->
+          @if (loadingMedicalFile()) {
+            <div class="doc-card" style="margin-bottom: 1.25rem;">
+              <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <p-skeleton height="1.5rem" width="60%" />
+                <p-skeleton height="1rem" width="40%" />
+              </div>
+            </div>
+          } @else if (medicalFile()) {
+            <div class="doc-card" style="margin-bottom: 1.25rem;">
+              <div class="doc-card-header">
+                <h2 class="doc-card-title"><i class="pi pi-id-card"></i> Informations du dossier</h2>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; padding: 1rem 1.5rem 1.5rem;">
+                <div>
+                  <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Dossier n°</p>
+                  <p style="font-family: monospace; font-size: 0.8rem;">{{ medicalFile()!.id }}</p>
+                </div>
+                <div>
+                  <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Créé le</p>
+                  <p>{{ formatDate(medicalFile()!.creationDate!) }}</p>
+                </div>  
+                <div>
+                  <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Dernière mise à jour</p>
+                  <p>{{ formatDate(medicalFile()!.lastUpdateDate!) }}</p>
+                </div>
+                @if (medicalFile()!.riskLevel) {
+                  <div>
+                    <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Niveau de risque</p>
+                    <p-tag
+                      [value]="medicalFile()!.riskLevel!"
+                      [severity]="medicalFile()!.riskLevel === 'high' ? 'danger' :
+                                  medicalFile()!.riskLevel === 'medium' ? 'warn' : 'success'"
+                    />
+                  </div>
+                }
+                @if (medicalFile()!.riskPercentage != null) {
+                  <div>
+                    <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Score de risque</p>
+                    <p>{{ (medicalFile()!.riskPercentage! * 100).toFixed(1) }}%</p>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Consultation timeline -->
+          <div class="doc-card">
+            <div class="doc-card-header">
+              <h2 class="doc-card-title"><i class="pi pi-history"></i> Historique des consultations</h2>
+              <span style="font-size: 0.8rem; color: var(--doc-text-muted);">
+                {{ consultations().length }} entrée(s)
+              </span>
+            </div>
+
+            <!-- Loading -->
+            @if (loadingConsultations()) {
+              <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                @for (i of skeletonArray(4); track i) {
+                  <p-skeleton height="5rem" />
+                }
+              </div>
+            }
+
+            <!-- Empty -->
+            @if (!loadingConsultations() && consultations().length === 0) {
+              <div class="doc-empty-state" style="padding: 3rem;">
+                <i class="pi pi-file-excel"></i>
+                <span>Aucune consultation enregistrée pour ce patient.</span>
+                <small style="color: var(--doc-text-muted);">
+                  Les consultations apparaissent ici après la complétion d'un rendez-vous.
+                </small>
+              </div>
+            }
+
+            <!-- Timeline entries -->
+            @if (!loadingConsultations() && consultations().length > 0) {
+              <div style="padding: 1rem 1.5rem;">
+                @for (c of consultations(); track c.id; let i = $index) {
+                  <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+
+                    <!-- Track -->
+                    <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+                      <div class="doc-timeline-dot"
+                       [class.doc-timeline-dot--risk]="hasHighRisk(c)"></div>
+                      @if (i < consultations().length - 1) {
+                        <div style="width: 2px; flex: 1; background: var(--doc-card-border); margin-top: 4px; min-height: 2rem;"></div>
+                      }
+                    </div>
+
+                    <!-- Card -->
+                    <div style="
+                      flex: 1; border: 1px solid var(--doc-card-border);
+                      border-radius: 10px; padding: 1rem 1.25rem;
+                      background: var(--doc-card-bg); margin-bottom: 0.25rem;
+                    ">
+                      <!-- Header row -->
+                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <span style="font-weight: 600; font-size: 0.9rem;">
+                          {{ formatDate(c.dateDeConsultation) }}
+                        </span>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                          @if (hasHighRisk(c)) {
+                            <p-tag value="Risque élevé" severity="danger" />
+                          } @else if (c.vitals.length > 0 && c.vitals[0].risk_percentage != null) {
+                            <p-tag value="Risque faible" severity="success" />
+                          }
+                          <span style="font-size: 0.75rem; color: var(--doc-text-muted);">
+                            {{ c.vitals.length }} mesure(s)
+                          </span>
                         </div>
-                        <p>Consultation du {{ formatDate(c.dateDeConsultation) }}</p>
-                      </article>
-                    }
-                  } @empty {
-                    <div class="doc-empty-state"><i class="pi pi-chart-line"></i><span>Aucune prédiction</span></div>
-                  }
-                </p-tabpanel>
-                <p-tabpanel value="2">
-                   @for (note of (medicalFile()?.notes || []); track note.id) {
-                    <article class="doc-history-item">
-                      <div class="doc-history-header">
-                        <strong>{{ note.authorName }}</strong>
-                        <span>{{ note.createdAt | date:'dd/MM/yyyy' }}</span>
                       </div>
-                      <p>{{ note.content }}</p>
-                    </article>
-                  } @empty {
-                    <div class="doc-empty-state"><i class="pi pi-file"></i><span>Aucune note</span></div>
-                  }
-                </p-tabpanel>
-              </p-tabpanels>
-            </p-tabs>
+
+                      <!-- Doctor notes -->
+                      @if (c.notes) {
+                        <div style="margin-bottom: 0.75rem;">
+                          <p style="font-size: 0.72rem; color: var(--doc-text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Notes cliniques</p>
+                          <p style="font-size: 0.875rem; line-height: 1.5;">{{ c.notes }}</p>
+                        </div>
+                      }
+
+                      <!-- Vitals grid -->
+                      @if (c.vitals.length > 0) {
+                        <div style="
+                          display: grid;
+                          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+                          gap: 0.5rem; margin-top: 0.5rem;
+                        ">
+                          @if (c.vitals[0].age != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Âge</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].age }} ans</p>
+                            </div>
+                          }
+                          @if (c.vitals[0].restingBloodPressure != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">TA repos</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].restingBloodPressure }} mmHg</p>
+                            </div>
+                          }
+                          @if (c.vitals[0].cholesterol != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Cholestérol</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].cholesterol }} mg/dL</p>
+                            </div>
+                          }
+                          @if (c.vitals[0].maxHeartRateAchieved != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">FC max</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].maxHeartRateAchieved }} bpm</p>
+                            </div>
+                          }
+                          @if (c.vitals[0].stdepressionInducedByExercise != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Dépression ST</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].stdepressionInducedByExercise }}</p>
+                            </div>
+                          }
+                          @if (c.vitals[0].risk_percentage != null) {
+                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
+                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Risque estimé</p>
+                              <p style="font-weight: 600; font-size: 0.875rem;">{{ (c.vitals[0].risk_percentage * 100).toFixed(1) }}%</p>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+
+                  </div>
+                }
+              </div>
+            }
+
           </div>
         }
       }
@@ -513,102 +640,139 @@
           </div>
         </div>
 
-        <div class="doc-card" style="display: flex; flex-direction: column; gap: 24px;"></div>
-          
-        <div class="doc-prediction-layout">
-          <div class="doc-card doc-prediction-form-card">
+        <div class="doc-pred-layout">
+
+          <!-- LEFT: form -->
+          <div class="doc-card doc-pred-form-card">
             <div class="doc-card-header">
-              <h2 class="doc-card-title">Paramètres cliniques</h2>
+              <h2 class="doc-card-title"><i class="pi pi-sliders-h"></i> Paramètres cliniques</h2>
             </div>
-            <div style="padding: 20px;">            
-              <form [formGroup]="predictionForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Âge</label>
-                  <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
+            <div class="doc-pred-form-body">
+              <form [formGroup]="predictionForm">
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Âge</label>
+                    <p-inputnumber formControlName="age" [min]="1" [max]="120" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Sexe</label>
+                    <p-select formControlName="sex" [options]="patientSexOptions"
+                      optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Sexe</label>
-                  <p-select formControlName="sex" [options]="patientSexOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Douleur thoracique</label>
+                    <p-select formControlName="chestPainType" [options]="chestPainOptions"
+                      optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Tension repos (mmHg)</label>
+                    <p-inputnumber formControlName="restingBloodPressure" [min]="50" [max]="250" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Douleur thoracique</label>
-                  <p-select formControlName="chestPainType" [options]="chestPainOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Cholestérol (mg/dl)</label>
+                    <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Glycémie à jeun &gt; 120</label>
+                    <p-select formControlName="fastingBloodSugar" [options]="binaryOptions"
+                      optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Tension repos (mmHg)</label>
-                  <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">ECG au repos</label>
+                    <p-select formControlName="restingECG" [options]="ecgOptions"
+                      optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">FC max (bpm)</label>
+                    <p-inputnumber formControlName="maxHeartRateAchieved" [min]="60" [max]="220" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Cholestérol (mg/dl)</label>
-                  <p-inputnumber formControlName="cholesterol" [min]="100" [max]="600" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Angine à l'effort</label>
+                    <p-select formControlName="exerciseInducedAngina" [options]="binaryOptions"
+                      optionLabel="label" optionValue="value" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Dépression ST</label>
+                    <p-inputnumber formControlName="STDepressionInducedByExercise"
+                      [min]="0" [minFractionDigits]="1" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Glycémie à jeun > 120</label>
-                  <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Pente ST</label>
+                    <p-inputnumber formControlName="slopeOfPeakExerciseSTSegment"
+                      [min]="0" [max]="2" styleClass="w-full" />
+                  </div>
+                  <div class="doc-pred-field">
+                    <label class="doc-pred-label">Vaisseaux colorés</label>
+                    <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="3" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">ECG au repos</label>
-                  <p-select formControlName="restingECG" [options]="ecgOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+
+                <div class="doc-pred-row">
+                  <div class="doc-pred-field doc-pred-field--full">
+                    <label class="doc-pred-label">Thalassémie</label>
+                    <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
+                  </div>
                 </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">FC max (bpm)</label>
-                  <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
-                </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Angine à l'effort</label>
-                  <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
-                </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Dépression ST (oldpeak)</label>
-                  <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
-                </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Pente ST (slope)</label>
-                  <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
-                </div>
-                <div class="doc-form-group">
-                  <label class="doc-form-label">Vaisseaux colorés</label>
-                  <p-inputnumber formControlName="nbOfMajorVessels" [min]="0" [max]="4" styleClass="w-full" />
-                </div>
-                <div class="doc-form-group" style="grid-column: span 2;">
-                  <label class="doc-form-label">Thalassémie</label>
-                  <p-inputnumber formControlName="thalassemia" [min]="0" [max]="3" styleClass="w-full" />
-                </div>
+
               </form>
-            <div class="doc-pred-submit-row">
-            <button type="button" class="doc-btn-primary doc-pred-submit-btn"
-              (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
-              @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse en cours... }
-              @else { <i class="pi pi-chart-line"></i> Lancer la prédiction }
-            </button>
-            </div>
+
+              <button type="button" class="doc-pred-submit-btn"
+                (click)="runPrediction()" [disabled]="predictionForm.invalid || predicting()">
+                @if (predicting()) { <i class="pi pi-spin pi-spinner"></i> Analyse en cours… }
+                @else { <i class="pi pi-chart-line"></i> Lancer la prédiction }
+              </button>
             </div>
           </div>
 
-          <div class="doc-card doc-prediction-result-card">
+          <!-- RIGHT: result -->
+          <div class="doc-card doc-pred-result-card">
             <div class="doc-card-header">
-              <h2 class="doc-card-title">Résultat IA</h2>
+              <h2 class="doc-card-title"><i class="pi pi-heart-fill"></i> Résultat IA</h2>
             </div>
-            @if (!predictionResult()) {
-              <div class="doc-pred-heart-display">
-                <svg class="doc-pred-heart-svg" [class.is-predicting]="predicting()" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
-                  <path class="heart-path" d="M50 85 L10 45 A25 25 0 0 1 50 20 A25 25 0 0 1 90 45 Z"/>
-                </svg>
-                <p class="doc-pred-idle-text">Remplissez les paramètres et lancez l'analyse pour voir le résultat ici.</p>
-              </div>
-            } @else {
-              <div class="doc-pred-result" [class.high]="predictionResult()?.prediction === 'High Risk'" [class.low]="predictionResult()?.prediction === 'Low Risk'">
-                <svg class="doc-pred-heart-result" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
-                  <path class="heart-path" d="M50 85 L10 45 A25 25 0 0 1 50 20 A25 25 0 0 1 90 45 Z"/>
-                </svg>
-                <div class="doc-pred-result-label">{{ riskText(predictionResult()!) }}</div>
-                <div class="doc-pred-result-prob">
-                  <strong>{{ predictionResult()?.percentage }}</strong>
-                  Probabilité estimée
+            <div class="doc-pred-result-body">
+              @if (!predictionResult()) {
+                <div class="doc-pred-idle">
+                  <div class="doc-pred-idle-icon"><i class="pi pi-heart"></i></div>
+                  <p>Remplissez les paramètres et lancez l'analyse pour voir le résultat ici.</p>
                 </div>
-              </div>
-            }
+              } @else {
+                <div class="doc-pred-score"
+                  [class.doc-pred-score--high]="predictionResult()!.prediction === 'High Risk'"
+                  [class.doc-pred-score--low]="predictionResult()!.prediction === 'Low Risk'">
+                  <div class="doc-pred-pct">{{ predictionResult()!.percentage }}</div>
+                  <div class="doc-pred-badge"
+                    [class.doc-pred-badge--high]="predictionResult()!.prediction === 'High Risk'"
+                    [class.doc-pred-badge--low]="predictionResult()!.prediction === 'Low Risk'">
+                    {{ riskText(predictionResult()!) }}
+                  </div>
+                  <p class="doc-pred-rec">
+                    @if (predictionResult()!.prediction === 'High Risk') {
+                      Risque cardiovasculaire élevé détecté. Consultez un cardiologue.
+                    } @else {
+                      Risque cardiovasculaire faible. Continuez le suivi régulier.
+                    }
+                  </p>
+                </div>
+              }
+            </div>
           </div>
+
         </div>
       }
     </section>
@@ -884,7 +1048,7 @@
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Tension repos (mmHg)</label>
-          <p-inputnumber formControlName="restingBP" [min]="50" [max]="250" styleClass="w-full" />
+          <p-inputnumber formControlName="restingBloodPressure" [min]="50" [max]="250" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Cholestérol (mg/dl)</label>
@@ -892,7 +1056,7 @@
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Glycémie à jeun &gt; 120</label>
-          <p-select formControlName="fastingBS" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+          <p-select formControlName="fastingBloodSugar" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">ECG au repos</label>
@@ -900,19 +1064,19 @@
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">FC max (bpm)</label>
-          <p-inputnumber formControlName="maxHR" [min]="60" [max]="220" styleClass="w-full" />
+          <p-inputnumber formControlName="maxHeartRateAchieved" [min]="60" [max]="220" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Angine à l'effort</label>
-          <p-select formControlName="exerciseAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
+          <p-select formControlName="exerciseInducedAngina" [options]="binaryOptions" optionLabel="label" optionValue="value" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Dépression ST (oldpeak)</label>
-          <p-inputnumber formControlName="oldpeak" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
+          <p-inputnumber formControlName="STDepressionInducedByExercise" [min]="0" [minFractionDigits]="1" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Pente ST (slope)</label>
-          <p-inputnumber formControlName="slope" [min]="0" [max]="2" styleClass="w-full" />
+          <p-inputnumber formControlName="slopeOfPeakExerciseSTSegment" [min]="0" [max]="2" styleClass="w-full" />
         </div>
         <div class="doc-form-group">
           <label class="doc-form-label">Vaisseaux colorés</label>

@@ -1,0 +1,370 @@
+/* signup.component.scss — CardioSense */
+/* Scoped styles for the form-panel side only.
+   The hero side and auth-shell are handled by global styles.scss */
+
+:host {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── Step progress bar ─────────────────────────────────────────── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.step-track {
+  flex: 1;
+  height: 4px;
+  background: var(--auth-input-border, #e2e8f0);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.step-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 2px;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.step-label {
+  font-size: 0.75rem;
+  color: var(--auth-text-muted, #64748b);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* ── Form step header ──────────────────────────────────────────── */
+.form-step-header {
+  margin-bottom: 1rem;
+
+  h2 {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--auth-text, #0d1b2a);
+    margin: 0 0 0.25rem;
+    transition: color 0.3s;
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: var(--auth-text-muted, #64748b);
+    margin: 0;
+    transition: color 0.3s;
+  }
+}
+
+/* ── Error box ─────────────────────────────────────────────────── */
+.auth-error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #dc2626;
+  margin-bottom: 0.75rem;
+
+  i { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+}
+
+/* ── Name row ──────────────────────────────────────────────────── */
+.name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Required star ─────────────────────────────────────────────── */
+.req { color: #ef4444; margin-left: 2px; }
+
+/* ── Password strength ─────────────────────────────────────────── */
+.strength-bar {
+  height: 4px;
+  background: var(--auth-input-border, #e2e8f0);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.375rem;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.35s ease, background 0.35s ease;
+
+  &.level-1 { background: #ef4444; }
+  &.level-2 { background: #f97316; }
+  &.level-3 { background: #eab308; }
+  &.level-4 { background: #22c55e; }
+}
+
+.strength-text {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 0.2rem;
+  display: block;
+
+  &.level-1 { color: #ef4444; }
+  &.level-2 { color: #f97316; }
+  &.level-3 { color: #eab308; }
+  &.level-4 { color: #22c55e; }
+}
+
+/* ── Age chip ──────────────────────────────────────────────────── */
+.age-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 20px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  color: #059669;
+  font-weight: 600;
+  width: fit-content;
+  margin-top: 0.375rem;
+
+  i { font-size: 0.75rem; }
+}
+
+/* ── Summary card ──────────────────────────────────────────────── */
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: var(--auth-input-bg, #f8fafc);
+  border: 1px solid var(--auth-input-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  font-family: 'Sora', sans-serif;
+  flex-shrink: 0;
+}
+
+.summary-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+
+  strong {
+    font-size: 0.9rem;
+    color: var(--auth-text, #0d1b2a);
+    font-weight: 600;
+    transition: color 0.3s;
+  }
+
+  span {
+    font-size: 0.8rem;
+    color: var(--auth-text-muted, #64748b);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.3s;
+  }
+
+  .summary-role {
+    display: inline-flex;
+    width: fit-content;
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    border-radius: 20px;
+    padding: 0.1rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: normal;
+    overflow: visible;
+  }
+}
+
+/* ── Primary "Next" button ─────────────────────────────────────── */
+.btn-next {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff !important;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+  margin-top: 0.75rem;
+  letter-spacing: 0.01em;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &:active { transform: translateY(0); }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  i { font-size: 0.9rem; }
+}
+
+/* ── Step 2 actions row ────────────────────────────────────────── */
+.step2-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+/* ── Back button ───────────────────────────────────────────────── */
+.btn-back {
+  flex: 0 0 auto;
+  padding: 0.875rem 1.125rem;
+  background: var(--auth-input-bg, #f8fafc);
+  color: var(--auth-text-muted, #64748b);
+  border: 1px solid var(--auth-input-border, #e2e8f0);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+
+  &:hover {
+    background: var(--auth-input-border, #e2e8f0);
+    color: var(--auth-text, #0d1b2a);
+  }
+
+  i { font-size: 0.85rem; }
+}
+
+/* ── Submit button ─────────────────────────────────────────────── */
+.btn-submit {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff !important;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.01em;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+  }
+
+  &:active { transform: translateY(0); }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  i { font-size: 0.9rem; }
+}
+
+/* ── Footer link ───────────────────────────────────────────────── */
+.auth-footer-link {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--auth-text-muted, #64748b);
+  margin-top: 1rem;
+
+  a {
+    color: #10b981;
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 0.25rem;
+
+    &:hover { text-decoration: underline; }
+  }
+}
+
+/* ── Hero step indicator (left panel) ─────────────────────────── */
+.hero-steps {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: auto;
+}
+
+.hero-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.45;
+  transition: opacity 0.3s;
+
+  &.active, &.done { opacity: 1; }
+
+  .hero-step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s;
+  }
+
+  &.active .hero-step-num {
+    background: #6ee7b7;
+    border-color: #6ee7b7;
+    color: #022c22;
+  }
+
+  &.done .hero-step-num {
+    background: #6ee7b7;
+    border-color: #6ee7b7;
+    color: #022c22;
+  }
+
+  span { font-size: 0.78rem; color: rgba(255, 255, 255, 0.55); }
+  &.active span { color: rgba(255, 255, 255, 0.9); }
+}
+
+.hero-step-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.18);
+}

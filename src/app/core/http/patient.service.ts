@@ -28,7 +28,7 @@ export interface ChangePasswordRequest {
 @Injectable({ providedIn: 'root' })
 export class PatientService {
   private readonly http = inject(HttpClient);
-  private readonly base = 'http://localhost:8080/api/v1';
+  private readonly base = '/api/v1';
 
   getProfile(id: string): Observable<PatientProfile> {
     return this.http.get<PatientProfile>(`${this.base}/patients/${id}`);

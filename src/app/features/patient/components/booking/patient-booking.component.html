@@ -1,0 +1,242 @@
+<p-toast position="top-right" />
+
+<div class="tt-wrapper">
+
+  <!-- ── DOCTOR CARD ───────────────────────────────────────────────────── -->
+  <div class="tt-doctor-card">
+    <div class="tt-doctor-avatar">{{ doctorInitials() }}</div>
+    <div class="tt-doctor-info">
+      <strong>Dr. {{ doctorName() }}</strong>
+      <span>{{ doctorSpecialty }}</span>
+    </div>
+    <div class="tt-doctor-badge">
+      <span class="tt-state-badge available">
+        <i class="pi pi-circle-fill"></i>
+        Prend des rendez-vous
+      </span>
+    </div>
+  </div>
+
+  <!-- ── HEADER ───────────────────────────────────────────────────────── -->
+  <div class="tt-header">
+    <div class="tt-header-left">
+      <div class="tt-icon"><i class="pi pi-calendar-clock"></i></div>
+      <div>
+        <h2 class="tt-title">Prendre un rendez-vous</h2>
+        <p class="tt-subtitle">Sélectionnez un créneau disponible</p>
+      </div>
+    </div>
+    <div class="tt-header-right">
+      <div class="tt-range-group">
+        @for (opt of rangeOptions; track opt.value) {
+          <button type="button" class="tt-range-btn"
+            [class.active]="selectedRange() === opt.value"
+            (click)="setRange(opt.value)">{{ opt.label }}</button>
+        }
+      </div>
+      <div class="tt-nav-controls">
+        <button type="button" class="tt-nav-btn" (click)="navigate(-1)">
+          <i class="pi pi-chevron-left"></i>
+        </button>
+        <button type="button" class="tt-today-btn" (click)="goToToday()">Aujourd'hui</button>
+        <button type="button" class="tt-nav-btn" (click)="navigate(1)">
+          <i class="pi pi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LEGEND ───────────────────────────────────────────────────────── -->
+  <div class="tt-legend">
+    <span class="tt-leg available"><span class="tt-dot"></span>Libre — cliquez pour réserver</span>
+    <span class="tt-leg pending"><span class="tt-dot"></span>Mon rendez-vous</span>
+    <span class="tt-leg unavailable"><span class="tt-dot"></span>Indisponible</span>
+  </div>
+
+  <!-- ── TIMETABLE GRID ────────────────────────────────────────────────── -->
+  <div class="tt-grid-container">
+    @if (loading()) {
+      <div class="tt-loading">
+        <p-skeleton height="400px" borderRadius="16px" />
+      </div>
+    } @else if (timetable().length === 0) {
+      <div class="tt-empty-state">
+        <i class="pi pi-calendar-times"></i>
+        <p>Aucun créneau disponible pour cette période.</p>
+      </div>
+    } @else {
+      <div class="tt-cal-grid" [style.--col-count]="timetable().length">
+
+        <!-- Corner -->
+        <div class="tt-corner"></div>
+
+        <!-- Day headers -->
+        @for (day of timetable(); track day.date) {
+          <div class="tt-day-header"
+            [class.today]="isToday(day.date)"
+            [class.workday]="day.isWorkDay">
+            <span class="tt-day-name">{{ day.label }}</span>
+            @if (day.isWorkDay) {
+              <span class="tt-day-free-count">{{ countFreeSlots(day) }} libres</span>
+            } @else {
+              <span class="tt-day-off">Repos</span>
+            }
+          </div>
+        }
+
+        <!-- Time rows -->
+        @for (timeRow of timeRows(); track timeRow) {
+          <div class="tt-time-label">{{ timeRow }}</div>
+
+          @for (day of timetable(); track day.date) {
+            @if (!day.isWorkDay) {
+              <div class="tt-cell tt-cell--off"></div>
+            } @else {
+              @let slot = getSlot(day, timeRow);
+              @if (slot) {
+
+                <!-- My own appointment (pending or confirmed) -->
+                @if ((slot.state === 'pending' || slot.state === 'confirmed') && slot.appointment) {
+                  <div
+                    class="tt-cell tt-cell--own"
+                    [class.pending]="slot.state === 'pending'"
+                    [class.confirmed]="slot.state === 'confirmed'"
+                    [pTooltip]="statusLabel((slot.appointment)!.status) + ' — ' + slotTypeLabel(slot)"
+                    tooltipPosition="top"
+                    (click)="onOwnSlotClick(slot)"
+                  >
+                    <span class="tt-cell-own-label">Moi</span>
+                    <span class="tt-cell-type-tag">{{ slotTypeLabel(slot) }}</span>
+                    @if (slot.state === 'pending') {
+                      <span class="tt-cell-pulse"></span>
+                    }
+                  </div>
+
+                <!-- Available slot — clickable to book -->
+                } @else if (slot.state === 'available') {
+                  <div
+                    class="tt-cell tt-cell--free"
+                    (click)="openBookingDialog(slot)"
+                    pTooltip="Réserver ce créneau"
+                    tooltipPosition="top"
+                  >
+                    <span class="tt-cell-time-label">{{ slot.time }}</span>
+                    <i class="pi pi-plus tt-cell-plus"></i>
+                  </div>
+
+                <!-- Taken by someone else — non-clickable -->
+                } @else {
+                  <div class="tt-cell tt-cell--taken"
+                    pTooltip="Créneau indisponible"
+                    tooltipPosition="top">
+                  </div>
+                }
+
+              } @else {
+                <div class="tt-cell tt-cell--empty"></div>
+              }
+            }
+          }
+        }
+
+      </div>
+    }
+  </div>
+
+</div>
+
+<!-- ── BOOKING CONFIRM DIALOG ─────────────────────────────────────────── -->
+<p-dialog
+  [(visible)]="bookingDialogVisible"
+  [modal]="true" [draggable]="false" [closable]="true"
+  [style]="{ width: '420px' }"
+  styleClass="tt-dialog"
+  header="Confirmer le rendez-vous"
+>
+  @if (pendingSlot()) {
+    <div class="tt-slot-detail">
+
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-user-md"></i>
+        <span>Dr. {{ doctorName() }} — {{ doctorSpecialty }}</span>
+      </div>
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-calendar"></i>
+        <span>{{ formatSlotDate(pendingSlot()!) }}</span>
+      </div>
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-clock"></i>
+        <span>{{ pendingSlot()!.time }}</span>
+      </div>
+
+      <div class="tt-field" style="margin-top: .5rem">
+        <label class="tt-field-label">Type de consultation</label>
+        <p-select
+          [(ngModel)]="selectedAppointmentType"
+          [options]="appointmentTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="tt-select"
+          appendTo="body"
+        />
+      </div>
+
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <button type="button" class="tt-btn-secondary" (click)="bookingDialogVisible = false">
+      Annuler
+    </button>
+    <button type="button" class="tt-btn-primary" [disabled]="booking()" (click)="confirmBooking()">
+      @if (booking()) { <i class="pi pi-spin pi-spinner"></i> Envoi… }
+      @else { <i class="pi pi-calendar-plus"></i> Demander ce créneau }
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- ── OWN SLOT DETAIL DIALOG ─────────────────────────────────────────── -->
+<p-dialog
+  [(visible)]="ownSlotDialogVisible"
+  [modal]="true" [draggable]="false" [closable]="true"
+  [style]="{ width: '420px' }"
+  styleClass="tt-dialog"
+  header="Mon rendez-vous"
+>
+  @if (selectedSlot()) {
+    <div class="tt-slot-detail">
+
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-calendar"></i>
+        <span>{{ selectedSlot()!.date | date:'EEEE d MMMM yyyy':'':'fr-FR' }}</span>
+      </div>
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-clock"></i>
+        <span>{{ selectedSlot()!.time }}</span>
+      </div>
+      <div class="tt-slot-detail-row">
+        <i class="pi pi-info-circle"></i>
+        <span>{{ slotTypeLabel(selectedSlot()!) }}</span>
+      </div>
+
+      @if (selectedSlot()!.appointment) {
+        <div class="tt-slot-detail-row">
+          <p-tag
+            [value]="statusLabel((selectedSlot()!.appointment)!.status)"
+            [severity]="selectedSlot()!.state === 'confirmed' ? 'success' : 'warn'"
+          />
+        </div>
+      }
+
+      <div class="tt-slot-actions">
+        <button type="button" class="tt-btn-reschedule" (click)="rescheduleOwn()">
+          <i class="pi pi-calendar-clock"></i> Reprogrammer
+        </button>
+        <button type="button" class="tt-btn-cancel" (click)="cancelOwn()">
+          <i class="pi pi-times"></i> Annuler le RDV
+        </button>
+      </div>
+
+    </div>
+  }
+</p-dialog>

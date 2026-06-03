@@ -14,6 +14,7 @@ export interface UserProfile {
 
   // Patient-specific
   dateOfBirth?: string;
+  age?:        number;
   gender?:      string;
   doctorId?:    string;
 }
