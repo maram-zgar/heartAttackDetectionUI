@@ -11,7 +11,7 @@
       </div>
       @if (!sidebarCollapsed()) {
         <div class="adm-brand-text">
-          <span class="adm-brand-name">CardioSense</span>
+          <span class="adm-brand-name">CardioConsult</span>
           <span class="adm-brand-role">Administration</span>
         </div>
       }
@@ -38,19 +38,10 @@
     </nav>
 
     <div class="adm-sidebar-footer">
-      <button
-        class="adm-nav-item"
-        (click)="toggleSettings()"
-        [pTooltip]="sidebarCollapsed() ? 'Paramètres' : ''"
-        tooltipPosition="right"
-      >
-        <i class="pi pi-cog adm-nav-icon" [class.spinning]="settingsPanelOpen()"></i>
-        @if (!sidebarCollapsed()) { <span>Paramètres</span> }
-      </button>
       <button 
         type="button" 
         class="doc-nav-item" 
-        style="color: var(--doc-rose);"
+        style="color: #ef4444;"
         (click)="logout()"
         [pTooltip]="sidebarCollapsed() ? 'Déconnexion' : ''"
         tooltipPosition="right"
@@ -70,7 +61,7 @@
           <i class="pi pi-bars"></i>
         </button>
         <div class="adm-breadcrumb">
-          <span class="adm-breadcrumb-root">CardioSense</span>
+          <span class="adm-breadcrumb-root">CardioConsult</span>
           <i class="pi pi-chevron-right"></i>
           <span class="adm-breadcrumb-current">
             {{ navItems | titleFromId: activeNav() }}
@@ -102,7 +93,7 @@
         <div class="adm-page-header">
           <div>
             <h1 class="adm-page-title">Tableau de bord</h1>
-            <p class="adm-page-sub">Vue d'ensemble de la plateforme CardioSense</p>
+            <p class="adm-page-sub">Vue d'ensemble de la plateforme CardioConsult</p>
           </div>
           <button class="adm-btn-primary" (click)="createDoctorVisible = true">
             <i class="pi pi-plus"></i> Nouveau médecin
@@ -138,7 +129,6 @@
                 <tr>
                   <th>Médecin</th>
                   <th>Email</th>
-                  <th>Statut</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -154,7 +144,7 @@
                   }
                 } @else if (doctors().length === 0) {
                   <tr>
-                    <td colspan="4" class="adm-table-empty">
+                    <td colspan="3" class="adm-table-empty">
                       <i class="pi pi-users" style="font-size:1.5rem;opacity:.4"></i>
                       <span>Aucun médecin enregistré</span>
                     </td>
@@ -170,14 +160,12 @@
                       </td>
                       <td class="adm-email-cell">{{ doc.email }}</td>
                       <td>
-                        <span class="adm-status-badge active">
-                          <span class="adm-status-dot"></span>
-                          Actif
-                        </span>
-                      </td>
-                      <td>
                         <div class="adm-action-btns">
-                          <button class="adm-action-btn edit" pTooltip="Modifier"><i class="pi pi-pen-to-square"></i></button>
+                          <button class="adm-action-btn edit" 
+                            pTooltip="Modifier"
+                            (click)="openEditDoctor(doc); $event.stopPropagation()">
+                            <i class="pi pi-pen-to-square"></i>
+                          </button>
                           <button class="adm-action-btn delete" (click)="confirmDelete(doc)">
                             <i [class]="'pi ' + (deletingDoctorId() === doc.id ? 'pi-spinner pi-spin' : 'pi-trash')"></i>
                           </button>
@@ -228,8 +216,6 @@
                   <th>#</th>
                   <th>Médecin</th>
                   <th>Email</th>
-                  <th>Date de création</th>
-                  <th>Statut</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -251,16 +237,13 @@
                         </div>
                       </td>
                       <td class="adm-email-cell">{{ doc.email }}</td>
-                      <td class="adm-date-cell">{{ doc.createdAt | date:'dd/MM/yyyy' }}</td>
-                      <td>
-                        <span class="adm-status-badge active">
-                          <span class="adm-status-dot"></span>
-                          Actif
-                        </span>
-                      </td>
                       <td>
                         <div class="adm-action-btns">
-                          <button class="adm-action-btn edit"><i class="pi pi-pen-to-square"></i></button>
+                          <button class="adm-action-btn edit"
+                            pTooltip="Modifier"
+                            (click)="openEditDoctor(doc); $event.stopPropagation()">
+                            <i class="pi pi-pen-to-square"></i>
+                          </button>
                           <button class="adm-action-btn delete" (click)="confirmDelete(doc)">
                             <i [class]="'pi ' + (deletingDoctorId() === doc.id ? 'pi-spinner pi-spin' : 'pi-trash')"></i>
                           </button>
@@ -278,33 +261,73 @@
 
       @if (activeNav() === 'stats') {
         <div class="adm-page-header">
-          <h1 class="adm-page-title">Statistiques</h1>
+          <div>
+            <h1 class="adm-page-title">Statistiques</h1>
+            <p class="adm-page-sub">Vue d'ensemble de l'activité de la plateforme</p>
+          </div>
         </div>
 
         <div class="adm-stats-grid">
-           </div>
-
-        <div class="adm-two-col-grid">
-          <div class="adm-card">
-            <div class="adm-card-header">
-              <h2 class="adm-card-title">Statut des comptes</h2>
-            </div>
-            <div class="adm-donut-section">
-              <div class="adm-donut-stats">
-                <div class="adm-donut-stat emerald">
-                  <span class="adm-donut-value">{{ activeDoctorCount }}</span>
-                  <span class="adm-donut-label">Actifs</span>
-                </div>
-                <div class="adm-donut-stat rose">
-                  <span class="adm-donut-value">{{ doctors().length - activeDoctorCount }}</span>
-                  <span class="adm-donut-label">Inactifs</span>
-                </div>
-              </div>
-              <div class="adm-status-bar">
-                <div class="adm-status-bar-active" [style.width]="doctors().length > 0 ? (activeDoctorCount / doctors().length * 100) + '%' : '50%'"></div>
-              </div>
+          <div class="adm-stat-card" style="--delay:0ms">
+            <div class="adm-stat-icon emerald"><i class="pi pi-users"></i></div>
+            <div class="adm-stat-body">
+              <span class="adm-stat-label">Médecins enregistrés</span>
+              @if (loadingDoctors()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="adm-stat-value">{{ doctors().length }}</span> }
             </div>
           </div>
+          <div class="adm-stat-card" style="--delay:80ms">
+            <div class="adm-stat-icon blue"><i class="pi pi-heart"></i></div>
+            <div class="adm-stat-body">
+              <span class="adm-stat-label">Patients enregistrés</span>
+              @if (loadingPatients()) { <p-skeleton width="4rem" height="2rem" /> }
+              @else { <span class="adm-stat-value">{{ totalPatients }}</span> }
+            </div>
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-header">
+            <div>
+              <h2 class="adm-card-title">
+                <i class="pi pi-users"></i> Patients par médecin
+              </h2>
+              <p class="adm-card-sub">Nombre de patients rattachés à chaque médecin</p>
+            </div>
+          </div>
+
+          @if (loadingDoctors() || loadingPatients()) {
+            <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+              @for (i of [1,2,3,4]; track i) {
+                <p-skeleton height="48px" />
+              }
+            </div>
+          } @else if (patientsPerDoctor.length === 0) {
+            <div class="adm-empty-state">
+              <i class="pi pi-users"></i>
+              <span>Aucun médecin enregistré</span>
+            </div>
+          } @else {
+            <div class="adm-doctor-stats-list">
+              @let maxCount = patientsPerDoctor[0]?.count || 1;
+              @for (item of patientsPerDoctor; track item.doctor.id) {
+                <div class="adm-doctor-stat-row">
+                  <div class="adm-doc-avatar">{{ getInitials(item.doctor) }}</div>
+                  <div class="adm-doctor-stat-info">
+                    <div class="adm-doctor-stat-name">
+                      Dr. {{ item.doctor.firstName }} {{ item.doctor.lastName }}
+                    </div>
+                    <div class="adm-doctor-stat-bar-wrap">
+                      <div class="adm-doctor-stat-bar"
+                        [style.width]="maxCount > 0 ? (item.count / maxCount * 100) + '%' : '0%'">
+                      </div>
+                    </div>
+                  </div>
+                  <span class="adm-doctor-stat-count">{{ item.count }}</span>
+                </div>
+              }
+            </div>
+          }
         </div>
       }
 
@@ -317,7 +340,7 @@
   [(visible)]="createDoctorVisible"
   header="Créer un nouveau médecin"
   [modal]="true"
-  [style]="{width: '480px'}"
+  [style]="{width: '500px'}"
   [draggable]="false"
   styleClass="adm-dialog"
 >
@@ -329,12 +352,18 @@
         <input pInputText formControlName="firstName" placeholder="Jean" class="w-full"
           [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'firstName')"
           [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'firstName')" />
+        @if (isFieldInvalid(createDoctorForm, 'firstName')) {
+          <small class="adm-field-error">Le prénom est requis.</small>
+        }
       </div>
       <div class="adm-dfield">
         <label>Nom</label>
         <input pInputText formControlName="lastName" placeholder="Dupont" class="w-full"
           [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'lastName')"
           [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'lastName')" />
+        @if (isFieldInvalid(createDoctorForm, 'lastName')) {
+          <small class="adm-field-error">Le nom est requis.</small>
+        }
       </div>
     </div>
 
@@ -343,20 +372,30 @@
       <input pInputText formControlName="email" type="email" placeholder="doctor@hopital.fr" class="w-full"
         [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'email')"
         [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'email')" />
+      @if (isFieldInvalid(createDoctorForm, 'email')) {
+        <small class="adm-field-error">Une adresse e-mail valide est requise.</small>
+      }
     </div>
 
     <div class="adm-dfield">
       <label>Numéro RPPS</label>
-      <input pInputText formControlName="numeroRPPS" placeholder="Ex: 10101234567"
+      <input pInputText formControlName="numeroRPPS" placeholder="Ex : 10101234567" class="w-full"
         [class.ng-invalid]="isFieldInvalid(createDoctorForm, 'numeroRPPS')"
         [class.ng-dirty]="isFieldInvalid(createDoctorForm, 'numeroRPPS')" />
+      @if (isFieldInvalid(createDoctorForm, 'numeroRPPS')) {
+        <small class="adm-field-error">Le numéro RPPS est requis.</small>
+      }
     </div>
 
     <div class="adm-dfield">
       <label>Mot de passe temporaire</label>
       <p-password formControlName="password" [feedback]="true" [toggleMask]="true"
         styleClass="w-full" [inputStyle]="{width:'100%'}"
-        [invalid]="isFieldInvalid(createDoctorForm, 'password')" />
+        [invalid]="isFieldInvalid(createDoctorForm, 'password')"
+        placeholder="Min. 8 caractères" />
+      @if (isFieldInvalid(createDoctorForm, 'password')) {
+        <small class="adm-field-error">Le mot de passe est requis.</small>
+      }
     </div>
 
     <div class="adm-dialog-actions">
@@ -366,5 +405,66 @@
         @else { Créer le compte }
       </button>
     </div>
+
   </form>
+</p-dialog>
+
+<p-dialog
+  [(visible)]="editDoctorVisible"
+  header="Modifier le médecin"
+  [modal]="true"
+  [style]="{width: '500px'}"
+  [draggable]="false"
+  styleClass="adm-dialog"
+>
+  @if (selectedDoctor()) {
+    <form [formGroup]="editDoctorForm" (ngSubmit)="submitEditDoctor()" class="adm-dialog-form">
+
+      <div class="adm-dialog-row">
+        <div class="adm-dfield">
+          <label>Prénom</label>
+          <input pInputText formControlName="firstName" class="w-full"
+            [class.ng-invalid]="isFieldInvalid(editDoctorForm, 'firstName')"
+            [class.ng-dirty]="isFieldInvalid(editDoctorForm, 'firstName')" />
+          @if (isFieldInvalid(editDoctorForm, 'firstName')) {
+            <small class="adm-field-error">Le prénom est requis.</small>
+          }
+        </div>
+        <div class="adm-dfield">
+          <label>Nom</label>
+          <input pInputText formControlName="lastName" class="w-full"
+            [class.ng-invalid]="isFieldInvalid(editDoctorForm, 'lastName')"
+            [class.ng-dirty]="isFieldInvalid(editDoctorForm, 'lastName')" />
+          @if (isFieldInvalid(editDoctorForm, 'lastName')) {
+            <small class="adm-field-error">Le nom est requis.</small>
+          }
+        </div>
+      </div>
+
+      <div class="adm-dfield">
+        <label>Adresse e-mail</label>
+        <input pInputText formControlName="email" type="email" class="w-full"
+          [class.ng-invalid]="isFieldInvalid(editDoctorForm, 'email')"
+          [class.ng-dirty]="isFieldInvalid(editDoctorForm, 'email')" />
+        @if (isFieldInvalid(editDoctorForm, 'email')) {
+          <small class="adm-field-error">Une adresse e-mail valide est requise.</small>
+        }
+      </div>
+
+      <div class="adm-dfield">
+        <label>Numéro RPPS</label>
+        <input pInputText formControlName="numeroRPPS" class="w-full"
+          placeholder="Ex : 10101234567" />
+      </div>
+
+      <div class="adm-dialog-actions">
+        <button type="button" class="adm-btn-ghost" (click)="editDoctorVisible = false">Annuler</button>
+        <button type="submit" class="adm-btn-primary" [disabled]="submittingEdit()">
+          @if (submittingEdit()) { <i class="pi pi-spinner pi-spin"></i> }
+          @else { Enregistrer }
+        </button>
+      </div>
+
+    </form>
+  }
 </p-dialog>

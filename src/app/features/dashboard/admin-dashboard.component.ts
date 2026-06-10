@@ -37,6 +37,7 @@ import { FormsModule } from '@angular/forms';
 import { TitleFromIdPipe } from './dashboard.pipes';
 import { rehydrateAuth } from '../../store/auth/auth.actions';
 import { selectAccessToken } from '../../store/auth/auth.selectors';
+import { DoctorService, Appointment } from '../../core/http/doctor.service';
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ import { selectAccessToken } from '../../store/auth/auth.selectors';
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
+  readonly Math = Math;
   // ── UI state ───────────────────────────────────────────────────────────────
 
   /** Whether the sidebar is in icon-only (collapsed) mode */
@@ -81,6 +83,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   isDark = false;
   /** Visibility of the "Create Doctor" dialog */
   createDoctorVisible = false;
+  appointments = signal<Appointment[]>([]);
+  loadingAppointments = signal(true);
+
+  editDoctorVisible = false;
+  editDoctorForm!: FormGroup;
+  selectedDoctor = signal<Doctor | null>(null);
+  submittingEdit = signal(false);
 
   // ── Loading flags ──────────────────────────────────────────────────────────
 
@@ -88,7 +97,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   loadingStats = signal(true);
   loadingActivity = signal(true);
   submittingDoctor = signal(false);
-  deletingDoctorId = signal<number | null>(null);
+  deletingDoctorId = signal<string | null>(null);
 
   // ── Data signals ──────────────────────────────────────────────────────────
 
@@ -100,6 +109,34 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     activeToday: 0,
   });
   activity = signal<ActivityEntry[]>([]);
+  allPatients = signal<{ id: string; doctorId?: string }[]>([]);
+  loadingPatients = signal(true);
+  get totalPatients(): number {
+    return this.allPatients().length;
+  }
+
+  get patientsPerDoctor(): { doctor: Doctor; count: number }[] {
+    return this.doctors()
+      .map(doc => ({
+        doctor: doc,
+        count: this.allPatients().filter(
+          p => p.doctorId != null && String(p.doctorId) === String(doc.id)
+        ).length
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  fetchAllPatients(): void {
+    this.loadingPatients.set(true);
+    this.adminService.getPatients().pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of([])),
+      finalize(() => this.loadingPatients.set(false))
+    ).subscribe(data => {
+      this.allPatients.set(data);
+      this.cdr.detectChanges();
+    });
+  }
 
   /** Filtered/sorted doctor list for the Médecins page */
   doctorSearch = '';
@@ -121,7 +158,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { id: 'dashboard', label: 'Tableau de bord', icon: 'pi-home' },
     { id: 'doctors', label: 'Médecins', icon: 'pi-users' },
     { id: 'stats', label: 'Statistiques', icon: 'pi-chart-bar' },
-    { id: 'activity', label: 'Activité', icon: 'pi-history' },
   ];
 
   /** Icon and color for each activity type */
@@ -141,6 +177,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     private readonly adminService: AdminService,
     private readonly confirmationService: ConfirmationService,
     private readonly messageService: MessageService,
+    private readonly doctorService: DoctorService,
     //private readonly store: Store,
     @Inject(PLATFORM_ID) private readonly platformId: object,
   ) {}
@@ -183,7 +220,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.settingsForm = this.fb.group({
       currentPassword: ['', Validators.required],
       newPassword: ['', [Validators.required, Validators.minLength(8)]],
-      email: ['admin@cardiosense.com'],
+      email: ['admin@CardioConsult.com'],
+    });
+    this.editDoctorForm = this.fb.group({
+      firstName: ['', Validators.required],
+      lastName:  ['', Validators.required],
+      email:     ['', [Validators.required, Validators.email]],
+      numeroRPPS: [''],
     });
   }
 
@@ -191,7 +234,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   private loadDarkMode(): void {
     if (isPlatformBrowser(this.platformId)) {
-      this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
+      this.isDark = localStorage.getItem('CardioConsult-dark') === 'true';
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }
@@ -199,7 +242,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   toggleDark(): void {
     this.isDark = !this.isDark;
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem('cardiosense-dark', String(this.isDark));
+      localStorage.setItem('CardioConsult-dark', String(this.isDark));
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }
@@ -232,7 +275,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private loadAllData(): void {
     //this.fetchStats();
     this.fetchDoctors();
-    //this.fetchActivity();
+    this.fetchAllPatients();
   }
 
   /**
@@ -268,6 +311,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.doctors.set(data);
         this.cdr.detectChanges();
       });
+  }
+
+  fetchAppointments(): void {
+    this.loadingAppointments.set(true);
+    this.doctorService.getAppointments().pipe(
+      takeUntil(this.destroy$),
+      catchError(() => of<Appointment[]>([])),
+      finalize(() => this.loadingAppointments.set(false))
+    ).subscribe(data => {
+      this.appointments.set(data);
+      this.cdr.detectChanges();
+    });
   }
 
   /**
@@ -370,6 +425,50 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  openEditDoctor(doc: Doctor): void {
+    this.selectedDoctor.set(doc);
+    this.editDoctorForm.patchValue({
+      firstName:  doc.firstName,
+      lastName:   doc.lastName,
+      email:      doc.email,
+      numeroRPPS: doc.numeroRPPS ?? '',
+    });
+    this.editDoctorVisible = true;
+  }
+
+  submitEditDoctor(): void {
+    if (this.editDoctorForm.invalid) {
+      this.editDoctorForm.markAllAsTouched();
+      return;
+    }
+    const doc = this.selectedDoctor();
+    if (!doc) return;
+
+    this.submittingEdit.set(true);
+    this.adminService.updateDoctor(doc.id, this.editDoctorForm.value).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.submittingEdit.set(false))
+    ).subscribe({
+      next: (updated) => {
+        this.doctors.update(list =>
+          list.map(d => d.id === doc.id ? { ...d, ...updated } : d)
+        );
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Modifié',
+          detail: `Dr. ${updated.firstName} ${updated.lastName} mis à jour.`
+        });
+        this.editDoctorVisible = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        const detail = err?.error?.message ?? 'Modification impossible.';
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   // ── Settings ───────────────────────────────────────────────────────────────
 
   /**
@@ -428,6 +527,35 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   /** Quick stat: number of active doctors in the loaded list */
   get activeDoctorCount(): number {
     return this.doctors().length;
+  }
+
+  get appointmentsByMonth(): { month: string; count: number }[] {
+    const counts: Record<string, number> = {};
+    const now = new Date();
+
+    // initialise last 6 months with 0
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleString('fr-FR', { month: 'short', year: '2-digit' });
+      counts[key] = 0;
+    }
+
+    this.appointments().forEach(a => {
+      const date = new Date(a.dateTime ?? a.date);
+      if (isNaN(date.getTime())) return;
+      const key = date.toLocaleString('fr-FR', { month: 'short', year: '2-digit' });
+      if (key in counts) counts[key] = (counts[key] ?? 0) + 1;
+    });
+
+    return Object.entries(counts).map(([month, count]) => ({ month, count }));
+  }
+
+  get totalAppointments(): number {
+    return this.appointments().length;
+  }
+
+  get completedAppointments(): number {
+    return this.appointments().filter(a => a.status === 'completed').length;
   }
 
   // testUploadImage(event: any): void {

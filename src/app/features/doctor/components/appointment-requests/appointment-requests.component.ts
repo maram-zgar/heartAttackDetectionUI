@@ -392,7 +392,7 @@ export class AppointmentRequestsComponent implements OnInit {
       duration:    appt.duration,
     }).subscribe({
       next: () => {
-        this.state.updateAppointmentStatus(appt.id, 'ACCEPTED');
+        this.state.updateAppointmentStatus(appt.id, 'CONFIRMED');
         this.actionLoading.set(null);
       },
       error: () => this.actionLoading.set(null)

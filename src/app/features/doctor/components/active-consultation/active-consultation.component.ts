@@ -504,7 +504,7 @@ export class ActiveConsultationComponent implements OnInit {
     const doctor  = this.state.doctorProfile();
     // Find the active appointment for this patient
     const appt = this.state.appointments().find(a =>
-      a.patientId === this.patient.id && a.status === 'ACCEPTED'
+      a.patientId === this.patient.id && a.status === 'CONFIRMED'
     );
 
     if (!appt || !doctor) { this.completing.set(false); return; }

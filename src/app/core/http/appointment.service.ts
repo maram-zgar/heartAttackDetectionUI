@@ -19,8 +19,18 @@ export class AppointmentService {
   private readonly http = inject(HttpClient);
   private readonly base = 'http://localhost:8080/api/v1/appointments';
 
-  findAll(): Observable<Appointment[]> {
+  findAll(doctorId?: string): Observable<Appointment[]> {
+    if (doctorId) {
+      return this.http.get<Appointment[]>(
+        `${this.base}/doctor/${doctorId}`
+      );
+    }
+
     return this.http.get<Appointment[]>(this.base);
+  }
+
+  findByDoctorId(doctorId: string): Observable<Appointment[]> {
+    return this.http.get<Appointment[]>(`${this.base}/doctor/${doctorId}`);
   }
 
   findById(id: string): Observable<Appointment> {

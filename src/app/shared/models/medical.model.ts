@@ -147,7 +147,7 @@ export interface PredictionPayload {
 
 export interface PredictionResult {
   percentage: string;
-  prediction:  'High Risk' | 'Low Risk';
+  prediction:  string;
   risk_percentage?: number;
   createdAt?: string;
   payload?: PredictionPayload;

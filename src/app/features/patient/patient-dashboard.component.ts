@@ -437,7 +437,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   toggleDark(): void {
     this.isDark = !this.isDark;
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem('cardiosense-dark', String(this.isDark));
+      localStorage.setItem('CardioConsult-dark', String(this.isDark));
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }
@@ -525,7 +525,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadDarkMode(): void {
-    this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
+    this.isDark = localStorage.getItem('CardioConsult-dark') === 'true';
     document.body.classList.toggle('dark-mode', this.isDark);
   }
 

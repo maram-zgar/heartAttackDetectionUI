@@ -334,7 +334,9 @@ export class DoctorTimetableComponent implements OnInit, OnDestroy {
       return `${rich.patientFirstName} ${rich.patientLastName ?? ''}`.trim();
     }
 
-    return `Patient #${String(appt.patientId).slice(0, 6)}`;
+    //return ``;//return patient first name + last name if available, else fallback to patientId excerpt
+    const idStr = String(appt.patientId);
+    return idStr.length > 8 ? idStr.slice(0, 8) : idStr;
   }
 
   slotTypeLabel(slot: TimetableSlot): string {

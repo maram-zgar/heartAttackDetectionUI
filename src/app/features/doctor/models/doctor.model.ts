@@ -42,7 +42,7 @@ export interface AppointmentResponse {
 
 export type AppointmentStatus =
   | 'PENDING'
-  | 'ACCEPTED'
+  | 'CONFIRMED'
   | 'CANCELLED'
   | 'RESCHEDULED'
   | 'COMPLETED';

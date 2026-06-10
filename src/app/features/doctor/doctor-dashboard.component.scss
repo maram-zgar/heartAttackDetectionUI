@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-//  CardioSense — Doctor Dashboard Component Styles  (REDESIGNED)
+//  CardioConsult — Doctor Dashboard Component Styles  (REDESIGNED)
 //  Emerald theme · Sora + DM Sans · Stagger animations · Dark/light dual mode
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1901,6 +1901,14 @@ p-table tr {
   i { font-size: 1.8rem; color: var(--doc-primary); }
 }
 
+.doc-pred-result-high {
+  color: #dc2626 !important;
+}
+
+.doc-pred-result-low {
+  color: #16a34a !important;
+}
+
 .doc-pred-score {
   display: flex;
   flex-direction: column;
@@ -1917,9 +1925,6 @@ p-table tr {
   line-height: 1;
   color: var(--doc-text-primary);
 }
-
-.doc-pred-score--high .doc-pred-pct { color: #dc2626; }
-.doc-pred-score--low  .doc-pred-pct { color: #16a34a; }
 
 .doc-pred-badge {
   padding: 5px 18px;
@@ -1941,7 +1946,7 @@ p-table tr {
 
 .doc-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 

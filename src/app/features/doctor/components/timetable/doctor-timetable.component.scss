@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
 :host {
-  --tt-bg:           #0d1f17;
-  --tt-surface:      #111827;
-  --tt-surface-2:    #1e2d24;
-  --tt-border:       #1e3a2f;
-  --tt-text:         #e2e8f0;
+  --tt-bg:           #ffffff;
+  --tt-surface:      #f8fafc;
+  --tt-surface-2:    #f1f5f9;
+  --tt-border:       #e2e8f0;
+  --tt-text:         #0f172a;
   --tt-text-muted:   #64748b;
-  --tt-emerald:      #10b981;
-  --tt-emerald-dark: #059669;
-  --tt-available-bg: rgba(5, 150, 105, 0.12);
-  --tt-pending:      #f59e0b;
-  --tt-pending-bg:   rgba(245, 158, 11, 0.1);
-  --tt-confirmed:    #10b981;
-  --tt-confirmed-bg: rgba(16, 185, 129, 0.1);
+  --tt-emerald:      #059669;
+  --tt-emerald-dark: #047857;
+  --tt-available-bg: rgba(5, 150, 105, 0.08);
+  --tt-pending:      #d97706;
+  --tt-pending-bg:   rgba(217, 119, 6, 0.08);
+  --tt-confirmed:    #059669;
+  --tt-confirmed-bg: rgba(5, 150, 105, 0.08);
   --tt-completed:    #64748b;
-  --tt-completed-bg: rgba(100, 116, 139, 0.1);
+  --tt-completed-bg: rgba(100, 116, 139, 0.08);
   --tt-radius:       14px;
   --tt-radius-sm:    10px;
 
@@ -267,10 +267,10 @@
 }
 
 .tt-cell--off {
-  background: rgba(0,0,0,.12);
+  background: #f1f5f9;
   background-image: repeating-linear-gradient(
     45deg, transparent, transparent 4px,
-    rgba(255,255,255,.012) 4px, rgba(255,255,255,.012) 8px
+    rgba(0,0,0,0.015) 4px, rgba(0,0,0,0.015) 8px
   );
 }
 
@@ -303,7 +303,7 @@
 
 .tt-cell-time-label {
   font-size: .65rem;
-  color: rgba(255,255,255,.2);
+  color: #94a3b8;
 }
 
 // Booked cells
@@ -475,7 +475,7 @@
 .tt-time-input {
   padding: .45rem .65rem;
   border-radius: 8px;
-  background: var(--tt-surface-2);
+  background: #ffffff;
   border: 1px solid var(--tt-border);
   color: var(--tt-text);
   font-size: .875rem;
