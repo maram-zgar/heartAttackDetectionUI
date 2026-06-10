@@ -298,7 +298,7 @@ export class PatientBookingComponent implements OnInit, OnChanges, OnDestroy {
     if (!this.doctorId) return;
     this.loading.set(true);
 
-    this.svc.buildPatientTimetable(this.doctorId, this.windowStart(), this.selectedRange())
+    this.svc.buildPatientTimetable(this.doctorId, this.windowStart(), this.selectedRange(), this.patientId)
       .pipe(takeUntil(this.destroy$), finalize(() => this.loading.set(false)))
       .subscribe({
         next: days => {

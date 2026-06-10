@@ -79,7 +79,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
     // Only access localStorage in the browser, never during SSR
     if (isPlatformBrowser(this.platformId)) {
-      this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
+      this.isDark = localStorage.getItem('CardioConsult-dark') === 'true';
       this.applyDarkMode();
     }
   }
@@ -100,7 +100,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   toggleDarkMode(): void {
     this.isDark = !this.isDark;
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem('cardiosense-dark', String(this.isDark));
+      localStorage.setItem('CardioConsult-dark', String(this.isDark));
       this.applyDarkMode();
     }
   }

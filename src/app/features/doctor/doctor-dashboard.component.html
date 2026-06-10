@@ -8,7 +8,7 @@
       <div class="doc-brand-icon"><i class="pi pi-heart-fill"></i></div>
       @if (!sidebarCollapsed()) {
         <div class="doc-brand-text">
-          <span class="doc-brand-name">CardioSense</span>
+          <span class="doc-brand-name">CardioConsult</span>
           <span class="doc-brand-role">Médecin</span>
         </div>
       }
@@ -68,7 +68,7 @@
           <i class="pi pi-bars"></i>
         </button>
         <div class="doc-breadcrumb">
-          <span class="doc-breadcrumb-root">CardioSense</span>
+          <span class="doc-breadcrumb-root">CardioConsult</span>
           <i class="pi pi-chevron-right"></i>
           <span class="doc-breadcrumb-current">{{ doctorName() }}</span>
         </div>
@@ -127,14 +127,6 @@
               <span class="doc-stat-label">Aujourd'hui</span>
               @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
               @else { <span class="doc-stat-value">{{ todayAppointments()?.length || 0 }}</span> }
-            </div>
-          </div>
-          <div class="doc-stat-card">
-            <div class="doc-stat-icon rose"><i class="pi pi-check-circle"></i></div>
-            <div class="doc-stat-body">
-              <span class="doc-stat-label">Consultations</span>
-              @if (loadingAppointments()) { <p-skeleton width="4rem" height="2rem" /> }
-              @else { <span class="doc-stat-value">{{ completedAppointments()?.length || 0 }}</span> }
             </div>
           </div>
         </div>
@@ -455,7 +447,7 @@
             </div>
           </div>
 
-          <!-- Medical file metadata (risk level, dates) -->
+          <!-- Medical file metadata -->
           @if (loadingMedicalFile()) {
             <div class="doc-card" style="margin-bottom: 1.25rem;">
               <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
@@ -476,7 +468,7 @@
                 <div>
                   <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Créé le</p>
                   <p>{{ formatDate(medicalFile()!.creationDate!) }}</p>
-                </div>  
+                </div>
                 <div>
                   <p style="font-size: 0.75rem; color: var(--doc-text-muted); margin-bottom: 0.25rem;">Dernière mise à jour</p>
                   <p>{{ formatDate(medicalFile()!.lastUpdateDate!) }}</p>
@@ -501,6 +493,44 @@
             </div>
           }
 
+          <!-- Risk evolution chart -->
+          @if (riskChartData().length > 0) {
+            <div class="doc-card" style="margin-bottom: 1.25rem;">
+              <div class="doc-card-header">
+                <h2 class="doc-card-title">
+                  <i class="pi pi-chart-bar"></i> Évolution du risque cardiovasculaire
+                </h2>
+              </div>
+              <div style="padding: 1.5rem;">
+                <div style="display: flex; align-items: flex-end; gap: 12px; height: 140px;
+                            padding-bottom: 8px; border-bottom: 2px solid var(--doc-card-border);">
+                  @for (point of riskChartData(); track point.date) {
+                    <div style="display: flex; flex-direction: column; align-items: center;
+                                flex: 1; gap: 6px; height: 100%; justify-content: flex-end;">
+                      <span style="font-size: 0.7rem; font-weight: 700;"
+                        [style.color]="point.risk > 50 ? 'var(--doc-rose)' : 'var(--doc-emerald)'">
+                        {{ point.risk }}%
+                      </span>
+                      <div
+                        [style.height.%]="point.risk"
+                        [style.background]="point.risk > 70 ? 'var(--doc-rose)' :
+                                            point.risk > 50 ? '#f97316' : 'var(--doc-emerald)'"
+                        style="width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s;">
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 6px;">
+                  @for (point of riskChartData(); track point.date) {
+                    <div style="flex: 1; text-align: center; font-size: 0.65rem; color: var(--doc-text-muted);">
+                      {{ point.date }}
+                    </div>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
           <!-- Consultation timeline -->
           <div class="doc-card">
             <div class="doc-card-header">
@@ -510,7 +540,6 @@
               </span>
             </div>
 
-            <!-- Loading -->
             @if (loadingConsultations()) {
               <div style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
                 @for (i of skeletonArray(4); track i) {
@@ -519,7 +548,6 @@
               </div>
             }
 
-            <!-- Empty -->
             @if (!loadingConsultations() && consultations().length === 0) {
               <div class="doc-empty-state" style="padding: 3rem;">
                 <i class="pi pi-file-excel"></i>
@@ -530,29 +558,22 @@
               </div>
             }
 
-            <!-- Timeline entries -->
             @if (!loadingConsultations() && consultations().length > 0) {
               <div style="padding: 1rem 1.5rem;">
                 @for (c of consultations(); track c.id; let i = $index) {
                   <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
 
-                    <!-- Track -->
                     <div style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
-                      <div class="doc-timeline-dot"
-                       [class.doc-timeline-dot--risk]="hasHighRisk(c)"></div>
+                      <div class="doc-timeline-dot" [class.doc-timeline-dot--risk]="hasHighRisk(c)"></div>
                       @if (i < consultations().length - 1) {
                         <div style="width: 2px; flex: 1; background: var(--doc-card-border); margin-top: 4px; min-height: 2rem;"></div>
                       }
                     </div>
 
-                    <!-- Card -->
-                    <div style="
-                      flex: 1; border: 1px solid var(--doc-card-border);
-                      border-radius: 10px; padding: 1rem 1.25rem;
-                      background: var(--doc-card-bg); margin-bottom: 0.25rem;
-                    ">
-                      <!-- Header row -->
-                      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="flex: 1; border: 1px solid var(--doc-card-border); border-radius: 10px; background: var(--doc-card-bg); margin-bottom: 0.25rem; overflow: hidden;">
+                      <button type="button"
+                        style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; background: none; border: none; cursor: pointer; text-align: left; flex-wrap: wrap; gap: 0.5rem;"
+                        (click)="toggleConsultation(c.id)">
                         <span style="font-weight: 600; font-size: 0.9rem;">
                           {{ formatDate(c.dateDeConsultation) }}
                         </span>
@@ -565,60 +586,150 @@
                           <span style="font-size: 0.75rem; color: var(--doc-text-muted);">
                             {{ c.vitals.length }} mesure(s)
                           </span>
+                          <i class="pi" style="font-size: 0.75rem; color: var(--doc-text-muted);"
+                            [ngClass]="expandedConsultationId() === c.id ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
                         </div>
-                      </div>
+                      </button>
 
-                      <!-- Doctor notes -->
-                      @if (c.notes) {
-                        <div style="margin-bottom: 0.75rem;">
-                          <p style="font-size: 0.72rem; color: var(--doc-text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Notes cliniques</p>
-                          <p style="font-size: 0.875rem; line-height: 1.5;">{{ c.notes }}</p>
-                        </div>
-                      }
+                      @if (expandedConsultationId() === c.id) {
+                        <div style="padding: 0 1.25rem 1.25rem; border-top: 1px solid var(--doc-card-border);">
 
-                      <!-- Vitals grid -->
-                      @if (c.vitals.length > 0) {
-                        <div style="
-                          display: grid;
-                          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-                          gap: 0.5rem; margin-top: 0.5rem;
-                        ">
-                          @if (c.vitals[0].age != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Âge</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].age }} ans</p>
+                          @if (c.notes) {
+                            <div style="margin: 1rem 0;">
+                              <p style="font-size: 0.72rem; color: var(--doc-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+                                <i class="pi pi-file-edit" style="margin-right: 4px;"></i>Notes cliniques
+                              </p>
+                              <p style="font-size: 0.875rem; line-height: 1.6; background: var(--doc-content-bg); padding: 0.75rem; border-radius: 6px;">{{ c.notes }}</p>
                             </div>
                           }
-                          @if (c.vitals[0].restingBloodPressure != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">TA repos</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].restingBloodPressure }} mmHg</p>
-                            </div>
+
+                          @if (c.vitals.length > 0) {
+                            @for (v of c.vitals; track v.id) {
+                              <div style="margin-top: 1rem;">
+                                <p style="font-size: 0.72rem; color: var(--doc-text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+                                  <i class="pi pi-heart" style="margin-right: 4px;"></i>Signes vitaux
+                                  @if (v.risk_percentage != null) {
+                                    — <span [style.color]="v.risk_percentage > 0.5 ? 'var(--doc-rose)' : 'var(--doc-emerald)'">
+                                      Risque : {{ (v.risk_percentage * 100).toFixed(1) }}%
+                                    </span>
+                                  }
+                                </p>
+
+                                <!-- Prediction result highlight -->
+                                @if (v.risk_percentage != null) {
+                                  <div style="margin-bottom: 1rem; padding: 1rem; border-radius: 8px; text-align: center;"
+                                    [style.background]="v.risk_percentage > 0.5 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)'"
+                                    [style.border]="'1px solid ' + (v.risk_percentage > 0.5 ? 'var(--doc-rose)' : 'var(--doc-emerald)')">
+                                    <div style="font-size: 2rem; font-weight: 800; margin-bottom: 4px;"
+                                      [style.color]="v.risk_percentage > 0.5 ? 'var(--doc-rose)' : 'var(--doc-emerald)'">
+                                      {{ (v.risk_percentage * 100).toFixed(1) }}%
+                                    </div>
+                                    <div style="font-size: 0.875rem; font-weight: 600;"
+                                      [style.color]="v.risk_percentage > 0.5 ? 'var(--doc-rose)' : 'var(--doc-emerald)'">
+                                      {{ v.risk_percentage > 0.7 ? '⚠️ Risque critique' :
+                                         v.risk_percentage > 0.5 ? '⚠️ Risque élevé' :
+                                         v.risk_percentage > 0.3 ? '⚡ Risque modéré' : '✅ Risque faible' }}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--doc-text-muted); margin-top: 4px;">
+                                      Résultat de l'analyse IA cardiovasculaire
+                                    </div>
+                                  </div>
+                                }
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem;">
+                                  @if (v.age != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Âge</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.age }} ans</p>
+                                    </div>
+                                  }
+                                  @if (v.sex != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Sexe</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.sex === 1 ? 'Homme' : 'Femme' }}</p>
+                                    </div>
+                                  }
+                                  @if (v.chestPainType != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Douleur thoracique</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">
+                                        {{ ['Angine Typique','Angine Atypique','Non-Angineuse','Asymptomatique'][v.chestPainType] ?? v.chestPainType }}
+                                      </p>
+                                    </div>
+                                  }
+                                  @if (v.restingBloodPressure != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">TA repos</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.restingBloodPressure }} mmHg</p>
+                                    </div>
+                                  }
+                                  @if (v.cholesterol != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Cholestérol</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.cholesterol }} mg/dL</p>
+                                    </div>
+                                  }
+                                  @if (v.fastingBloodSugar != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Glycémie à jeun &gt;120</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.fastingBloodSugar ? 'Oui' : 'Non' }}</p>
+                                    </div>
+                                  }
+                                  @if (v.restingECG != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">ECG repos</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">
+                                        {{ ['Normal','Anomalie ST-T','Hypertrophie V.'][v.restingECG] ?? v.restingECG }}
+                                      </p>
+                                    </div>
+                                  }
+                                  @if (v.maxHeartRateAchieved != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">FC max</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.maxHeartRateAchieved }} bpm</p>
+                                    </div>
+                                  }
+                                  @if (v.exerciseInducedAngina != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Angine à l'effort</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.exerciseInducedAngina ? 'Oui' : 'Non' }}</p>
+                                    </div>
+                                  }
+                                  @if (v.stdepressionInducedByExercise != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Dépression ST</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.stdepressionInducedByExercise }}</p>
+                                    </div>
+                                  }
+                                  @if (v.slopeOfPeakExerciseSTSegment != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Pente ST</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.slopeOfPeakExerciseSTSegment }}</p>
+                                    </div>
+                                  }
+                                  @if (v.nbOfMajorVessels != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Vaisseaux colorés</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.nbOfMajorVessels }}</p>
+                                    </div>
+                                  }
+                                  @if (v.thalassemia != null) {
+                                    <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                                      <p style="font-size: 0.68rem; color: var(--doc-text-muted); margin-bottom: 0.15rem;">Thalassémie</p>
+                                      <p style="font-weight: 600; font-size: 0.875rem;">{{ v.thalassemia }}</p>
+                                    </div>
+                                  }
+                                </div>
+                              </div>
+                            }
                           }
-                          @if (c.vitals[0].cholesterol != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Cholestérol</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].cholesterol }} mg/dL</p>
-                            </div>
+
+                          @if (!c.notes && c.vitals.length === 0) {
+                            <p style="color: var(--doc-text-muted); font-size: 0.875rem; padding: 1rem 0; text-align: center;">
+                              Aucun détail enregistré pour cette consultation.
+                            </p>
                           }
-                          @if (c.vitals[0].maxHeartRateAchieved != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">FC max</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].maxHeartRateAchieved }} bpm</p>
-                            </div>
-                          }
-                          @if (c.vitals[0].stdepressionInducedByExercise != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Dépression ST</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ c.vitals[0].stdepressionInducedByExercise }}</p>
-                            </div>
-                          }
-                          @if (c.vitals[0].risk_percentage != null) {
-                            <div style="background: var(--doc-content-bg); border-radius: 6px; padding: 0.4rem 0.6rem;">
-                              <p style="font-size: 0.7rem; color: var(--doc-text-muted);">Risque estimé</p>
-                              <p style="font-weight: 600; font-size: 0.875rem;">{{ (c.vitals[0].risk_percentage * 100).toFixed(1) }}%</p>
-                            </div>
-                          }
+
                         </div>
                       }
                     </div>
@@ -763,9 +874,9 @@
                   </div>
                   <p class="doc-pred-rec">
                     @if (predictionResult()!.prediction === 'High Risk') {
-                      Risque cardiovasculaire élevé détecté. Consultez un cardiologue.
+                      Risque cardiovasculaire élevé détecté.
                     } @else {
-                      Risque cardiovasculaire faible. Continuez le suivi régulier.
+                      Risque cardiovasculaire faible.
                     }
                   </p>
                 </div>
@@ -1093,11 +1204,15 @@
          </button>
          
          @if (predictionResult()) {
-            <div style="margin-top: 16px; text-align: center; color: var(--doc-primary);">
+            <div style="margin-top: 16px; text-align: center;"
+              [ngClass]="{
+                'doc-pred-result-high':   predictionResult()!.prediction === 'High Risk',
+                'doc-pred-result-low':    predictionResult()!.prediction === 'Low Risk'
+              }">
               <strong>Score: {{ predictionResult()?.percentage }}</strong>
               <p>{{ riskText(predictionResult()!) }}</p>
             </div>
-         }
+          }
       </div>
     </div>
   </div>

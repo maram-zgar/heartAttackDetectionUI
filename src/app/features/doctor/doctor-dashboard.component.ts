@@ -257,6 +257,7 @@ onTimetableSlotSelected(payload: string): void {
   readonly patientDetailVisible      = signal(false);
   readonly addPatientVisible         = signal(false);
   readonly editPatientVisible        = signal(false);
+  readonly expandedConsultationId = signal<string | null>(null);
 
   isDark = false;
 
@@ -290,6 +291,18 @@ onTimetableSlotSelected(payload: string): void {
     })),
   );
 
+  readonly riskChartData = computed(() => {
+    const consultations = this.consultations();
+    return consultations
+      .filter(c => c.vitals?.some(v => v.risk_percentage != null))
+      .map(c => ({
+        date: this.formatDate(c.dateDeConsultation),
+        risk: Math.round((c.vitals[0]?.risk_percentage ?? 0) * 100),
+        label: (c.vitals[0]?.risk_percentage ?? 0) > 0.5 ? 'Risque élevé' : 'Risque faible',
+      }))
+      .reverse();
+  });
+
   readonly doctorAppointments = computed(() => {
     const doctorId = this.currentUser()?.id;
     if (!doctorId) return this.appointments();
@@ -313,7 +326,7 @@ onTimetableSlotSelected(payload: string): void {
   );
 
   readonly pendingAppointments = computed(() =>
-    this.appointments().filter(a => a.status === 'PENDING'),
+    this.doctorAppointments().filter(a => a.status === 'PENDING'),
   );
 
   readonly todayAppointments = computed(() => {
@@ -819,7 +832,7 @@ onTimetableSlotSelected(payload: string): void {
       notes:     this.consultationForm.controls['notes'].value,
       diagnosis: this.consultationForm.controls['diagnosis'].value,
       prediction:  pred ? (pred.prediction === 'High Risk' ? 1 : 0) : undefined,
-      riskPercentage: pred ? pred.risk_percentage : undefined,
+      riskPercentage: pred ? parseFloat(pred.percentage) / 100 : undefined,
       // vitals
       age:                           vitals.age,
       sex:                           vitals.sex,
@@ -847,12 +860,27 @@ onTimetableSlotSelected(payload: string): void {
           this.messageService.add({
             severity: 'success',
             summary:  'Consultation terminée',
-            detail:   'Dossier médical mis à jour.',
+            detail:   'Dossier médical mis à jour dans quelques instants.',
           });
-          // Refresh the medical file if it's open for this patient
-          if (String(this.selectedPatient()?.id) === String(appointment.patientId)) {
-            this.openMedicalFile(this.selectedPatient()!);
-          }
+
+          // Kafka needs ~2s to process — poll twice to be safe
+          const patientId = String(appointment.patientId);
+          const patient = this.selectedPatient();
+
+          setTimeout(() => {
+            this.consultationService.getByPatientId(patientId)
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: list => this.consultations.set(list) });
+          }, 2000);
+
+          setTimeout(() => {
+            this.consultationService.getByPatientId(patientId)
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: list => this.consultations.set(list) });
+            if (patient) this.medicalFileService.getByPatientId(patientId)
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({ next: file => this.medicalFile.set(file) });
+          }, 4000);
         },
         error: (err: unknown) => this.showError(this.errorMessage(err)),
       });
@@ -1138,6 +1166,9 @@ onTimetableSlotSelected(payload: string): void {
   }
   toggleSidebar(): void  { this.sidebarCollapsed.update(v => !v); }
   toggleSettings(): void { this.settingsPanelOpen.update(v => !v); }
+  toggleConsultation(id: string): void {
+    this.expandedConsultationId.update(current => current === id ? null : id);
+  }
 
   loadAll(): void { 
     this.loadAllData();
@@ -1147,7 +1178,7 @@ onTimetableSlotSelected(payload: string): void {
   toggleDark(): void {
     this.isDark = !this.isDark;
     if (isPlatformBrowser(this.platformId)) {
-      localStorage.setItem('cardiosense-dark', String(this.isDark));
+      localStorage.setItem('CardioConsult-dark', String(this.isDark));
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }
@@ -1271,94 +1302,47 @@ onTimetableSlotSelected(payload: string): void {
   }
 
   loadAppointments(): void {
+    const doctorId = this.currentUser()?.id;
+    if (!doctorId) return;
+
     this.loadingAppointments.set(true);
-    this.errorAppointments.set(null);
-
-    this.appointmentService.findAll().pipe(
-      switchMap(appointments => {
-        if (!appointments.length) return of([]);
-        console.log("APPOINTMENTS FROM API", appointments);
-
-        // Deduplicate patient IDs to avoid redundant calls
-        const uniquePatientIds = [...new Set(appointments.map(a => String(a.patientId)))];
-
-        this.patientService.getProfile('b68277a0-ed9f-439d-ae4b-622c558eeb28')
-        .pipe(
-          catchError(() => of(console.log("PATIENT NOT FOUND")))
-        )
-        .subscribe(profile => {
-          console.log("TEST PROFILE", profile);
-        });
-
-        uniquePatientIds.forEach(id => {
-          this.patientService.getProfile(id).pipe(
-            catchError(() => of({ firstName: '', lastName: '', email: '' } as any))
-          ).subscribe(profile => {
-            console.log("PROFILE", profile);
-          });
-        });
-
-        return forkJoin(
-          uniquePatientIds.reduce((acc, id) => {
-            acc[id] = this.patientService.getProfile(id).pipe(      
-              catchError(() => of({ firstName: '', lastName: '', email: '' } as any)));
-            return acc;
-          }, {} as Record<string, Observable<PatientProfile>>)
-        ).pipe(
-          map(profilesById => appointments.map(appt => ({
-            ...appt,
-            patientFirstName: profilesById[String(appt.patientId)]?.firstName || (appt as any).patientFirstName || '',
-            patientLastName:  profilesById[String(appt.patientId)]?.lastName  || (appt as any).patientLastName  || '',
-            patientEmail:     profilesById[String(appt.patientId)]?.email     || appt.patientEmail || '',
-          }))),
-        );
-      }),
-      takeUntil(this.destroy$),
-      finalize(() => {
-        this.loadingAppointments.set(false);
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: appointments => {
-        this.appointments.set(appointments);
-        this.cdr.detectChanges();
-        console.log('Appointments loaded:', appointments);
-      },
-      error: err => {
-        this.errorAppointments.set(err?.error?.message ?? 'Impossible de charger les rendez-vous.');
-        this.appointments.set([]);
-      },
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  //  Private helpers
-  // ─────────────────────────────────────────────────────────────────────────
-
-  private afterConsultationSaved(consultation: Consultation): void {
-    this.consultationDialogVisible.set(false);
-    this.messageService.add({ severity: 'success', summary: 'Consultation enregistrée', detail: 'Ajoutée au dossier médical.' });
-
-    const current = this.medicalFile();
-    if (current && String(current.patientId) === String(consultation.patientId)) {
-      // Medical file was already loaded — append directly (no extra API call)
-      this.medicalFile.set(this.withSortedConsultations({
-        ...current,
-        consultations: [consultation, ...current.consultations],
-        lastUpdateDate: new Date().toISOString(),
-      }));
-    } else {
-      const patient = this.selectedPatient();
-      if (patient) {
-        this.medicalFileService
-          .getByPatientId(String(patient.id))
-          .pipe(takeUntil(this.destroy$))
-          .subscribe({
-            next: file => this.medicalFile.set(this.withSortedConsultations(file)),
-            error: () => {} // silent — the dossier tab will retry on navigation
-          });
-      }
-    }
+    this.appointmentService.findByDoctorId(doctorId)
+      .pipe(
+        switchMap(appointments => {
+          if (!appointments.length) return of([]);
+          const uniqueIds = [...new Set(appointments.map(a => String(a.patientId)))];
+          return forkJoin(
+            uniqueIds.reduce((acc, id) => {
+              acc[id] = this.patientService.getProfile(id).pipe(
+                catchError(() => of({ firstName: '', lastName: '', email: '' } as any))
+              );
+              return acc;
+            }, {} as Record<string, Observable<PatientProfile>>)
+          ).pipe(
+            map(profilesById => appointments.map(appt => ({
+              ...appt,
+              patientFirstName: profilesById[String(appt.patientId)]?.firstName || appt.patientFirstName || '',
+              patientLastName:  profilesById[String(appt.patientId)]?.lastName  || appt.patientLastName  || '',
+              patientEmail:     profilesById[String(appt.patientId)]?.email     || appt.patientEmail     || '',
+            })))
+          );
+        }),
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.loadingAppointments.set(false);
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: appointments => {
+          this.appointments.set(appointments);
+          this.cdr.detectChanges();
+        },
+        error: err => {
+          this.errorAppointments.set(err?.error?.message ?? 'Impossible de charger les rendez-vous.');
+          this.appointments.set([]);
+        },
+      });
   }
 
   private replaceAppointment(updated: Appointment): void {
@@ -1430,7 +1414,7 @@ onTimetableSlotSelected(payload: string): void {
 
   private loadDarkMode(): void {
     if (isPlatformBrowser(this.platformId)) {
-      this.isDark = localStorage.getItem('cardiosense-dark') === 'true';
+      this.isDark = localStorage.getItem('CardioConsult-dark') === 'true';
       document.body.classList.toggle('dark-mode', this.isDark);
     }
   }

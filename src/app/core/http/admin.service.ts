@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 
 // Import types from component
 export interface Doctor {
-  id: number;
+  id: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -36,7 +36,7 @@ export interface ActivityEntry {
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private readonly baseUrl = 'http://localhost:8080/admin';
+  private readonly baseUrl = '/admin';
 
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
@@ -58,6 +58,13 @@ export class AdminService {
 
   getDoctors(): Observable<Doctor[]> {
     return this.http.get<Doctor[]>(`${this.baseUrl}/doctors`);
+  }
+  updateDoctor(id: string, data: Partial<Doctor>): Observable<Doctor> {
+    return this.http.put<Doctor>(`${this.baseUrl}/doctors/${id}`, data);
+  }
+
+  getPatients(): Observable<{ id: string; doctorId?: string }[]> {
+    return this.http.get<{ id: string; doctorId?: string }[]>(`/api/v1/patients`);
   }
 
   getActivity(): Observable<ActivityEntry[]> {

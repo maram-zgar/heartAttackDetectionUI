@@ -275,6 +275,7 @@ export class AvailabilityTimetableService {
     doctorId: string,
     startDate: Date,
     range: TimetableRange,
+    patientId: string,
   ): Observable<TimetableDay[]> {
     const dates = this.generateDateWindow(startDate, range);
 
@@ -294,12 +295,24 @@ export class AvailabilityTimetableService {
           this.getAvailableSlots(doctorId, this.toDateStr(d)),
         );
 
-        return forkJoin(slotRequests).pipe(
-          map(slotResponses => {
-            // Set of ISO datetime strings the backend considers available (not confirmed)
+        return forkJoin([
+          forkJoin(slotRequests),
+          this.http.get<AppointmentResponse[]>(
+            `http://localhost:8080/api/v1/appointments/patient/${patientId}`
+          ),
+        ]).pipe(
+          map(([slotResponses, patientAppointments]) => {
+            // Free slots returned by the backend (not CONFIRMED or PENDING)
             const availableSet = new Set<string>(
               slotResponses.flatMap(r => r.slots),
             );
+
+            // Patient's own appointments indexed by normalised datetime key
+            const ownByDateTime = new Map<string, AppointmentResponse>();
+            patientAppointments.forEach(a => {
+              const key = a.dateTime.substring(0, 16) + ':00';
+              ownByDateTime.set(key, a);
+            });
 
             return dates.map(date => {
               const dow   = this.toDayOfWeek(date);
@@ -307,23 +320,39 @@ export class AvailabilityTimetableService {
 
               if (!avail) {
                 return {
-                  date:       this.toDateStr(date),
-                  label:      this.formatDayLabel(date),
-                  dayOfWeek:  dow,
-                  isWorkDay:  false,
-                  slots:      [],
+                  date:      this.toDateStr(date),
+                  label:     this.formatDayLabel(date),
+                  dayOfWeek: dow,
+                  isWorkDay: false,
+                  slots:     [],
                 } as TimetableDay;
               }
 
               const allSlots = this.generateSlots(date, avail);
-              const slots: TimetableSlot[] = allSlots.map(slotDt => ({
-                dateTime:    slotDt,
-                date:        this.toDateStr(date),
-                time:        slotDt.substring(11, 16),
-                // Not in available set → already booked (show as taken to patient)
-                state:       availableSet.has(slotDt) ? 'available' : 'confirmed',
-                appointment: undefined, // never expose appointment details to patient
-              }));
+
+              const slots: TimetableSlot[] = allSlots.map(slotDt => {
+                const ownAppt = ownByDateTime.get(slotDt);
+
+                // Slot belongs to this patient
+                if (ownAppt && (ownAppt.status === 'PENDING' || ownAppt.status === 'CONFIRMED')) {
+                  return {
+                    dateTime:    slotDt,
+                    date:        this.toDateStr(date),
+                    time:        slotDt.substring(11, 16),
+                    state:       ownAppt.status === 'PENDING' ? 'pending' : 'confirmed',
+                    appointment: ownAppt,
+                  } as TimetableSlot;
+                }
+
+                // Free or taken by someone else
+                return {
+                  dateTime:    slotDt,
+                  date:        this.toDateStr(date),
+                  time:        slotDt.substring(11, 16),
+                  state:       availableSet.has(slotDt) ? 'available' : 'confirmed',
+                  appointment: undefined,
+                } as TimetableSlot;
+              });
 
               return {
                 date:      this.toDateStr(date),

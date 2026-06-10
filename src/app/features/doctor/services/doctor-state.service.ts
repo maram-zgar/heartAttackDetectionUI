@@ -30,7 +30,7 @@ export class DoctorStateService {
     const today = new Date().toISOString().slice(0, 10);
     return this.appointments().filter(a =>
       a.scheduledAt.startsWith(today) &&
-      (a.status === 'ACCEPTED' || a.status === 'PENDING')
+      (a.status === 'CONFIRMED' || a.status === 'PENDING')
     ).length;
   });
 
@@ -44,7 +44,7 @@ export class DoctorStateService {
 
   upcomingAppointments = computed(() =>
     this.appointments()
-      .filter(a => a.status === 'ACCEPTED' && new Date(a.scheduledAt) > new Date())
+      .filter(a => a.status === 'CONFIRMED' && new Date(a.scheduledAt) > new Date())
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
   );
 
